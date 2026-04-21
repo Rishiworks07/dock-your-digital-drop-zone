@@ -351,7 +351,7 @@ function Dashboard() {
                 className={cn(
                   "rounded-full px-6 py-2.5 text-sm font-bold whitespace-nowrap transition-all duration-300",
                   filter === f.id
-                    ? "bg-white text-primary shadow-lg border border-primary/5 -translate-y-0.5"
+                    ? "bg-card text-primary shadow-lg border border-primary/10 -translate-y-0.5"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 )}
               >
