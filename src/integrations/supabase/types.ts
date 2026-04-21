@@ -14,7 +14,135 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      items: {
+        Row: {
+          content: string | null
+          created_at: string
+          file_name: string | null
+          file_path: string | null
+          file_size: number
+          file_type: string | null
+          file_url: string | null
+          id: string
+          is_pinned: boolean
+          language: string | null
+          link_favicon: string | null
+          link_image: string | null
+          link_title: string | null
+          link_url: string | null
+          tags: string[]
+          thumbnail_url: string | null
+          title: string | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          is_pinned?: boolean
+          language?: string | null
+          link_favicon?: string | null
+          link_image?: string | null
+          link_title?: string | null
+          link_url?: string | null
+          tags?: string[]
+          thumbnail_url?: string | null
+          title?: string | null
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number
+          file_type?: string | null
+          file_url?: string | null
+          id?: string
+          is_pinned?: boolean
+          language?: string | null
+          link_favicon?: string | null
+          link_image?: string | null
+          link_title?: string | null
+          link_url?: string | null
+          tags?: string[]
+          thumbnail_url?: string | null
+          title?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          auto_delete_days: number
+          avatar_url: string | null
+          created_at: string
+          default_view: string
+          display_name: string | null
+          email: string | null
+          id: string
+          paste_detection_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_delete_days?: number
+          avatar_url?: string | null
+          created_at?: string
+          default_view?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          paste_detection_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_delete_days?: number
+          avatar_url?: string | null
+          created_at?: string
+          default_view?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          paste_detection_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_storage: {
+        Row: {
+          limit_bytes: number
+          updated_at: string
+          used_bytes: number
+          user_id: string
+        }
+        Insert: {
+          limit_bytes?: number
+          updated_at?: string
+          used_bytes?: number
+          user_id: string
+        }
+        Update: {
+          limit_bytes?: number
+          updated_at?: string
+          used_bytes?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
