@@ -1,1 +1,2 @@
-project_id = "mmgoizjtxziqpcafowaw"
+import .env
+project_id = Vite_Supabase_project_id
