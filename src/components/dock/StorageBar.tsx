@@ -10,35 +10,21 @@ interface Props {
 
 export function StorageBar({ used, limit }: Props) {
   const pct = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
-  const isFull = pct >= 100;
-  const isWarn = pct >= 80;
 
   return (
-    <div className="rounded-2xl border bg-card p-4 shadow-card">
-      <div className="mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <HardDrive className="h-4 w-4 text-primary" />
-          Storage
-        </div>
-        <span className={cn(
-          "text-sm tabular-nums",
-          isFull ? "text-destructive" : isWarn ? "text-warning" : "text-muted-foreground",
-        )}>
-          {formatBytes(used)} / {formatBytes(limit)} used
+    <div className="rounded-2xl bg-card p-6 shadow-card">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Storage Space</h3>
+        <span className="text-sm font-bold text-primary">
+          {formatBytes(used)} <span className="font-normal text-muted-foreground">/ {formatBytes(limit)}</span>
         </span>
       </div>
-      <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
+      <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted/80 border border-border/20">
         <div
-          className={cn(
-            "h-full transition-base",
-            isFull ? "bg-destructive" : isWarn ? "bg-warning" : "bg-primary-gradient",
-          )}
+          className="h-full bg-primary transition-all duration-500 ease-out shadow-[0_0_10px_rgba(var(--primary),0.4)]"
           style={{ width: `${pct}%` }}
         />
       </div>
-      {isFull && (
-        <p className="mt-2 text-xs text-destructive">Storage full. Delete items to upload more.</p>
-      )}
     </div>
   );
 }

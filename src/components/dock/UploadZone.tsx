@@ -9,9 +9,10 @@ interface Props {
   uploading: boolean;
   progress: number;
   disabled?: boolean;
+  className?: string;
 }
 
-export function UploadZone({ onFiles, uploading, progress, disabled }: Props) {
+export function UploadZone({ onFiles, uploading, progress, disabled, className }: Props) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -29,10 +30,11 @@ export function UploadZone({ onFiles, uploading, progress, disabled }: Props) {
       onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
       onDrop={handleDrop}
       className={cn(
-        "relative rounded-2xl border-2 border-dashed p-10 md:p-14 text-center transition-base",
-        "border-primary/40 bg-gradient-to-b from-sky-soft to-card",
-        isDragging && "border-primary bg-accent animate-pulse-ring",
+        "relative flex flex-col items-center justify-center rounded-[2rem] border-2 border-dashed p-12 text-center transition-all duration-300",
+        "border-primary/30 bg-sky-soft/50 hover:bg-sky-soft/80",
+        isDragging && "border-primary bg-sky-soft scale-[0.99]",
         disabled && "opacity-60 cursor-not-allowed",
+        className
       )}
     >
       <input
@@ -46,31 +48,34 @@ export function UploadZone({ onFiles, uploading, progress, disabled }: Props) {
           if (inputRef.current) inputRef.current.value = "";
         }}
       />
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-gradient shadow-lift">
-        {uploading ? <Loader2 className="h-8 w-8 animate-spin text-white" /> : <CloudUpload className="h-8 w-8 text-white" />}
+
+      <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-card shadow-sm border border-primary/10">
+        {uploading ? (
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        ) : (
+          <CloudUpload className="h-8 w-8 text-primary" />
+        )}
       </div>
-      <h3 className="mt-4 text-xl font-semibold text-foreground">
-        {uploading ? "Uploading…" : "Drag & drop files here"}
+
+      <h3 className="text-xl font-bold text-foreground">
+        {uploading ? "Uploading items..." : "Drag & drop files here"}
       </h3>
-      <p className="mt-1 text-sm text-muted-foreground">
-        or paste anything (Ctrl+V)
+      <p className="mt-2 text-sm text-muted-foreground">
+        or click to browse from your computer
       </p>
 
       {uploading ? (
-        <div className="mx-auto mt-4 max-w-xs">
-          <Progress value={progress} />
-          <p className="mt-1 text-xs text-muted-foreground">{Math.round(progress)}%</p>
+        <div className="mt-6 w-full max-w-xs">
+          <Progress value={progress} className="h-1.5" />
+          <p className="mt-2 text-xs font-semibold text-primary">{Math.round(progress)}%</p>
         </div>
       ) : (
         <Button
           type="button"
-          variant="outline"
-          size="sm"
           onClick={() => inputRef.current?.click()}
           disabled={disabled}
-          className="mt-4 rounded-lg border-primary/30 bg-card text-primary hover:bg-accent"
+          className="mt-8 rounded-lg bg-primary px-8 py-6 text-sm font-bold text-primary-foreground hover:bg-primary/90 transition-all shadow-md"
         >
-          <FolderOpen className="h-4 w-4" />
           Browse Files
         </Button>
       )}

@@ -32,34 +32,38 @@ export function ItemCard({ item, onTogglePin, onDelete, onOpen }: Props) {
     toast.success("Copied");
   };
 
+  const isImage = item.type === "image" && item.thumbnail_url && !imgError;
+  const isVideo = item.type === "video";
+  const isLink = item.type === "link";
+  const isNote = item.type === "note" || item.type === "code";
+  const isPDF = item.file_name?.toLowerCase().endsWith(".pdf");
+
   return (
     <div
-      className="group relative flex flex-col overflow-hidden rounded-2xl border bg-card shadow-card transition-base hover:-translate-y-0.5 hover:shadow-lift cursor-pointer animate-fade-in-up"
+      className={cn(
+        "group relative flex flex-col overflow-hidden rounded-[1.5rem] border-0 bg-card shadow-card transition-all duration-300 hover:shadow-lift cursor-pointer",
+        isImage ? "h-fit" : "aspect-square sm:aspect-auto"
+      )}
       onClick={() => onOpen(item)}
     >
-      {/* Pin button */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onTogglePin(item); }}
-        className={cn(
-          "absolute right-2 top-2 z-10 rounded-full p-1.5 transition-base",
-          item.is_pinned
-            ? "bg-primary text-primary-foreground"
-            : "bg-card/80 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent",
-        )}
-        aria-label={item.is_pinned ? "Unpin" : "Pin"}
-      >
-        {item.is_pinned ? <PinIcon className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
-      </button>
-
-      {/* Menu */}
-      <div className="absolute left-2 top-2 z-10 opacity-0 group-hover:opacity-100 transition-base">
+      {/* Action Menu (Visible on hover) */}
+      <div className="absolute right-3 top-3 z-10 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
+        <button
+          onClick={(e) => { e.stopPropagation(); onTogglePin(item); }}
+          className={cn(
+            "rounded-full p-2 bg-card/90 shadow-sm border border-border text-muted-foreground hover:text-primary transition-colors",
+            item.is_pinned && "text-primary opacity-100"
+          )}
+        >
+          {item.is_pinned ? <PinIcon className="h-4 w-4 fill-current" /> : <PinOff className="h-4 w-4" />}
+        </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-card/80 hover:bg-accent">
-              <MoreVertical className="h-3.5 w-3.5" />
-            </Button>
+            <button className="rounded-full p-2 bg-card/90 shadow-sm border border-border text-muted-foreground hover:text-primary">
+              <MoreVertical className="h-4 w-4" />
+            </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={copyContent}><Copy className="h-4 w-4" />Copy</DropdownMenuItem>
             {item.file_url && (
               <DropdownMenuItem onClick={() => window.open(item.file_url!, "_blank")}>
@@ -73,60 +77,79 @@ export function ItemCard({ item, onTogglePin, onDelete, onOpen }: Props) {
         </DropdownMenu>
       </div>
 
-      {/* Body by type */}
-      {item.type === "image" && item.thumbnail_url && !imgError ? (
-        <div className="aspect-square w-full overflow-hidden bg-muted">
-          <img
-            src={item.thumbnail_url}
-            alt={item.file_name ?? "image"}
-            loading="lazy"
-            onError={() => setImgError(true)}
-            className="h-full w-full object-cover"
-          />
-        </div>
-      ) : item.type === "video" ? (
-        <div className="relative aspect-square w-full overflow-hidden bg-foreground/90 flex items-center justify-center">
-          <Play className="h-12 w-12 text-white" />
-        </div>
-      ) : item.type === "link" ? (
-        <div className="flex aspect-[16/10] w-full items-center justify-center bg-gradient-to-br from-sky-soft to-accent">
-          {item.link_favicon ? (
-            <img src={item.link_favicon} alt="" className="h-10 w-10 rounded" loading="lazy" />
-          ) : (
-            <LinkIcon className="h-10 w-10 text-primary" />
-          )}
-        </div>
-      ) : item.type === "code" ? (
-        <div className="aspect-[16/10] w-full overflow-hidden bg-foreground p-3 font-mono text-[11px] text-white/90">
-          <pre className="line-clamp-5 whitespace-pre-wrap break-all">{item.content?.slice(0, 200) ?? ""}</pre>
-        </div>
-      ) : item.type === "note" ? (
-        <div className="aspect-[16/10] w-full bg-gradient-to-br from-sky-soft to-card p-4">
-          <FileText className="mb-2 h-5 w-5 text-primary" />
-          <p className="line-clamp-4 text-sm text-foreground/80">{item.content}</p>
-        </div>
-      ) : (
-        // file
-        <div className="flex aspect-[16/10] w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-sky-soft to-card">
-          <div className={cn("flex h-14 w-14 items-center justify-center rounded-xl text-white", fileTypeColor(fileExtBadge(item.file_name)))}>
-            <span className="text-xs font-bold">{fileExtBadge(item.file_name)}</span>
+      {/* Item Body */}
+      <div className="flex-1">
+        {isImage ? (
+          <div className="relative">
+            <img
+              src={item.thumbnail_url!}
+              alt={item.file_name!}
+              onError={() => setImgError(true)}
+              className="w-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="flex items-center gap-2 p-4 bg-card">
+              <div className="bg-sky-soft p-1.5 rounded-lg text-primary">
+                <ImageIcon className="h-4 w-4" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-bold truncate max-w-[150px]">{item.file_name}</span>
+                <span className="text-[10px] text-muted-foreground">{formatBytes(item.file_size)} • {formatRelative(item.created_at)}</span>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* Footer */}
-      <div className="flex flex-col gap-1 p-3">
-        <div className="flex items-center gap-1.5 text-xs text-primary">
-          {iconForType(item.type)}
-          <span className="capitalize">{item.type}</span>
-        </div>
-        <p className="line-clamp-1 text-sm font-medium text-foreground">
-          {item.title || item.file_name || (item.type === "link" ? getDomain(item.link_url ?? "") : "Untitled")}
-        </p>
-        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-          <span>{item.file_size ? formatBytes(item.file_size) : item.type === "link" ? getDomain(item.link_url ?? "") : ""}</span>
-          <span>{formatRelative(item.created_at)}</span>
-        </div>
+        ) : isLink ? (
+          <div className="flex flex-col p-6 h-full">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="bg-sky-soft p-2 rounded-xl text-primary">
+                <LinkIcon className="h-5 w-5" />
+              </div>
+              <span className="text-xs font-bold text-primary truncate">{getDomain(item.link_url ?? "")}</span>
+            </div>
+            <h3 className="text-base font-bold text-foreground mb-2 line-clamp-2">{item.link_title || item.title || "Untitled Link"}</h3>
+            <p className="text-sm text-muted-foreground line-clamp-3 mb-4">{item.content || "No description available"}</p>
+            {item.link_image && !imgError && (
+              <img
+                src={item.link_image}
+                className="mt-auto rounded-xl h-32 w-full object-cover border border-border"
+                onError={() => setImgError(true)}
+              />
+            )}
+          </div>
+        ) : isNote ? (
+          <div className="p-6 h-full flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <div className="bg-sky-soft p-2 rounded-xl text-primary">
+                <FileText className="h-5 w-5" />
+              </div>
+              {item.is_pinned && <PinIcon className="h-4 w-4 text-primary fill-current" />}
+            </div>
+            <h3 className="text-base font-bold text-foreground mb-3 line-clamp-1">{item.title || "Quick Note"}</h3>
+            <div className="text-sm text-muted-foreground line-clamp-[6] whitespace-pre-wrap">
+              {item.content}
+            </div>
+            <div className="mt-auto pt-4 text-xs text-muted-foreground font-medium">
+              {formatRelative(item.created_at)}
+            </div>
+          </div>
+        ) : (
+          <div className="p-6 h-full flex flex-col items-start">
+            <div className="flex items-center justify-between w-full mb-4">
+              <div className={cn(
+                "p-3 rounded-xl text-white shadow-sm",
+                isPDF ? "bg-red-500" : fileTypeColor(fileExtBadge(item.file_name))
+              )}>
+                {isPDF ? <span className="font-bold text-xs uppercase">PDF</span> : <FileText className="h-6 w-6" />}
+              </div>
+            </div>
+            <h3 className="text-base font-bold text-foreground mb-4 line-clamp-2 leading-tight">
+              {item.file_name || item.title || "Untitled File"}
+            </h3>
+            <div className="mt-auto flex items-center justify-between w-full text-xs text-muted-foreground font-semibold">
+              <span>{formatBytes(item.file_size)}</span>
+              <span>{formatRelative(item.created_at)}</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

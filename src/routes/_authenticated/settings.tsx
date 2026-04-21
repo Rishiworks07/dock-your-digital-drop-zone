@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { ArrowLeft, Trash2, User, HardDrive, ShieldCheck, Moon, Sun, Settings as SettingsIcon, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { formatBytes, STORAGE_LIMIT } from "@/lib/item-helpers";
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/_authenticated/settings")({
 
 function SettingsPage() {
   const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [used, setUsed] = useState(0);
   const [limit, setLimit] = useState(STORAGE_LIMIT);
@@ -64,57 +66,121 @@ function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b bg-card/90 backdrop-blur-md shadow-card">
-        <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3">
-          <Button variant="ghost" size="icon" asChild>
-            <Link to="/dashboard"><ArrowLeft className="h-4 w-4" /></Link>
-          </Button>
-          <h1 className="text-lg font-semibold">Settings</h1>
+    <div className="min-h-screen bg-background">
+      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/50 px-6 py-4">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-8">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" asChild className="rounded-full hover:bg-muted/50">
+              <Link to="/dashboard"><ArrowLeft className="h-5 w-5" /></Link>
+            </Button>
+            <h1 className="text-xl font-bold tracking-tight text-foreground">Settings</h1>
+          </div>
+
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all"
+            aria-label="Toggle theme"
+          >
+            {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+          </button>
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl space-y-6 px-4 py-6">
-        <section className="rounded-2xl border bg-card p-6 shadow-card">
-          <h2 className="mb-4 text-lg font-semibold">Account</h2>
-          <p className="text-sm text-muted-foreground">Email</p>
-          <p className="mb-4 font-medium">{user?.email}</p>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={sendPasswordReset}>Send password reset email</Button>
-            <Button variant="outline" onClick={async () => { await signOut(); navigate({ to: "/login" }); }}>Sign out</Button>
+      <main className="mx-auto max-w-3xl space-y-8 px-6 py-10">
+        <section className="rounded-2xl bg-card p-8 shadow-card border border-transparent">
+          <div className="flex items-center gap-4 mb-8 border-b pb-4">
+            <div className="bg-sky-soft p-3 rounded-xl text-primary shadow-sm">
+              <User className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Account Profile</h2>
+              <p className="text-sm text-muted-foreground">Manage your account information</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div>
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1.5 ml-1">Email Address</p>
+              <div className="bg-muted/50 px-4 py-3 rounded-xl font-bold text-foreground border border-border/50">
+                {user?.email}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 pt-4">
+              <Button variant="outline" onClick={sendPasswordReset} className="rounded-xl border-primary/20 hover:bg-sky-soft/30 hover:text-primary font-bold">
+                <ShieldCheck className="mr-2 h-4 w-4" /> Reset Password
+              </Button>
+              <Button variant="outline" onClick={async () => { await signOut(); navigate({ to: "/login" }); }} className="rounded-xl font-bold">
+                <LogOut className="mr-2 h-4 w-4" /> Sign out
+              </Button>
+            </div>
           </div>
         </section>
 
-        <section className="rounded-2xl border bg-card p-6 shadow-card">
-          <h2 className="mb-4 text-lg font-semibold">Storage</h2>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Using <span className="font-medium text-foreground">{formatBytes(used)}</span> of {formatBytes(limit)}
-          </p>
-          <div className="space-y-2">
-            {breakdown.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No items yet.</p>
-            ) : breakdown.map((b) => (
-              <div key={b.type} className="flex items-center justify-between rounded-lg bg-muted px-3 py-2 text-sm">
-                <span className="capitalize">{b.type} <span className="text-muted-foreground">({b.count})</span></span>
-                <span className="tabular-nums">{formatBytes(b.bytes)}</span>
-              </div>
-            ))}
+        <section className="rounded-2xl bg-card p-8 shadow-card border border-transparent">
+          <div className="flex items-center gap-4 mb-8 border-b pb-4">
+            <div className="bg-sky-soft p-3 rounded-xl text-primary shadow-sm">
+              <HardDrive className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">Storage Management</h2>
+              <p className="text-sm text-muted-foreground">Monitor and manage your used space</p>
+            </div>
           </div>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="mt-4"><Trash2 className="h-4 w-4" />Clear all items</Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="rounded-2xl">
-              <AlertDialogHeader>
-                <AlertDialogTitle>Clear everything?</AlertDialogTitle>
-                <AlertDialogDescription>This permanently deletes all your items and files.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={clearAll} className="bg-destructive text-destructive-foreground">Delete all</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+
+          <div className="space-y-8">
+            <div>
+              <p className="text-sm font-bold text-foreground mb-3 flex items-center justify-between">
+                <span>Total Usage</span>
+                <span className="text-primary">{formatBytes(used)} <span className="font-normal text-muted-foreground">/ {formatBytes(limit)}</span></span>
+              </p>
+              <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted/50 border border-border/20">
+                <div
+                  className="h-full bg-primary transition-all duration-500 ease-out shadow-[0_0_15px_rgba(var(--primary),0.3)]"
+                  style={{ width: `${limit > 0 ? Math.min(100, (used / limit) * 100) : 0}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {breakdown.length === 0 ? (
+                <p className="text-sm text-muted-foreground col-span-full py-4 text-center bg-muted/20 rounded-xl border border-dashed">No items stored yet.</p>
+              ) : breakdown.map((b) => (
+                <div key={b.type} className="flex items-center justify-between p-4 rounded-xl bg-sky-soft/30 border border-border/30 hover:bg-sky-soft/50 transition-all">
+                  <div className="flex items-center gap-3">
+                    <SettingsIcon className="h-4 w-4 text-primary opacity-60" />
+                    <span className="font-bold text-foreground capitalize">{b.type}</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-foreground text-sm">{formatBytes(b.bytes)}</p>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">{b.count} items</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-6 border-t">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="rounded-xl font-bold w-full sm:w-auto">
+                    <Trash2 className="mr-2 h-4 w-4" /> Clear All Items
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent className="rounded-[2rem] p-8 border-none shadow-lift">
+                  <AlertDialogHeader className="mb-6">
+                    <AlertDialogTitle className="text-2xl font-bold text-foreground">Clear everything?</AlertDialogTitle>
+                    <AlertDialogDescription className="text-muted-foreground text-base">
+                      This will permanently delete all your items and files from our storage. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter className="gap-3">
+                    <AlertDialogCancel className="rounded-xl font-bold border-primary/20 text-primary hover:bg-sky-soft/30">Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={clearAll} className="rounded-xl font-bold bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete Everything</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
         </section>
       </main>
     </div>

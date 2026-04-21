@@ -2,9 +2,11 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Anchor, ArrowDownAZ, ArrowDownWideNarrow, Clipboard, FileText,
-  Link as LinkIcon, Loader2, LogOut, Search, Settings, User, X,
+  Link as LinkIcon, Loader2, LogOut, Search, Settings, User, X, PinIcon,
+  Moon, Sun,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -65,6 +67,7 @@ function Dashboard() {
   const [linkOpen, setLinkOpen] = useState(false);
   const [detailItem, setDetailItem] = useState<Item | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Item | null>(null);
+  const { theme, toggleTheme } = useTheme();
 
   // Debounce search
   useEffect(() => {
@@ -219,131 +222,163 @@ function Dashboard() {
   const initial = (user?.email ?? "U").charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-background">
       {/* Top nav */}
-      <header className="sticky top-0 z-30 border-b bg-card/90 backdrop-blur-md shadow-card">
-        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3">
+      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/50 px-6 py-4">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-8">
           <Link to="/dashboard" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-gradient">
-              <Anchor className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-lg font-bold tracking-tight">Dock</span>
+            <h1 className="text-2xl font-bold tracking-tight text-primary">Dock</h1>
           </Link>
 
-          <div className="relative mx-auto flex w-full max-w-md items-center">
-            <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
+          <div className="relative flex-1 max-w-xl">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
               placeholder="Search your items..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="rounded-lg border-input bg-background pl-9 pr-9"
+              className="w-full rounded-full border-none bg-muted/50 py-3 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/20 outline-none transition-all"
             />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                className="absolute right-3 text-muted-foreground hover:text-foreground"
-                aria-label="Clear search"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="rounded-full transition-base hover:opacity-80">
-                <Avatar className="h-9 w-9 border-2 border-primary/30">
-                  <AvatarFallback className="bg-primary-gradient text-white">{initial}</AvatarFallback>
-                </Avatar>
+          <div className="flex items-center gap-2">
+            <div className="hidden lg:flex items-center gap-3 mr-4 px-3 py-1.5 rounded-full bg-sky-soft/40 border border-border/50 shadow-sm transition-all hover:bg-sky-soft/60 cursor-default group">
+              <div className="relative flex items-center justify-center">
+                <div className="h-2 w-2 rounded-full bg-primary" />
+                <div className="absolute h-4 w-4 rounded-full bg-primary/40 animate-pulse-soft" />
+              </div>
+              <span className="text-[11px] font-bold text-primary uppercase tracking-widest">Workspace Synced</span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={toggleTheme}
+                className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all"
+                aria-label="Toggle theme"
+              >
+                {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
               </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <div className="px-2 py-1.5 text-xs text-muted-foreground">{user?.email}</div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
-                <User className="h-4 w-4" />Profile
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
-                <Settings className="h-4 w-4" />Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={async () => { await signOut(); navigate({ to: "/login" }); }}>
-                <LogOut className="h-4 w-4" />Sign out
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <button
+                onClick={() => navigate({ to: "/settings" })}
+                className="p-2 rounded-full text-muted-foreground hover:text-foreground hidden sm:block hover:bg-muted/50 transition-all"
+              >
+                <Settings className="h-5 w-5" />
+              </button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="ml-1 rounded-full transition-all hover:ring-2 hover:ring-primary/20">
+                    <Avatar className="h-9 w-9 border border-border">
+                      <AvatarFallback className="bg-primary text-white font-bold text-xs">{initial}</AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 mt-2">
+                  <div className="px-4 py-3 border-b">
+                    <p className="text-sm font-bold text-foreground">Logged in as</p>
+                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                  </div>
+                  <DropdownMenuItem onClick={() => navigate({ to: "/settings" })} className="mt-1">
+                    <User className="h-4 w-4" />Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
+                    <Settings className="h-4 w-4" />Account Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={async () => { await signOut(); navigate({ to: "/login" }); }} className="text-destructive">
+                    <LogOut className="h-4 w-4" />Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6">
-        <UploadZone onFiles={handleFiles} uploading={uploading} progress={uploadProgress} disabled={isFull} />
+      <main className="mx-auto max-w-7xl px-6 py-10 space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+          {/* Left Column: Upload Zone */}
+          <div className="lg:col-span-2">
+            <UploadZone onFiles={handleFiles} uploading={uploading} progress={uploadProgress} disabled={isFull} className="h-full" />
+          </div>
 
-        {/* Quick actions */}
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Button variant="outline" onClick={() => setNoteOpen(true)} className="h-12 rounded-xl border-primary/30 bg-card text-foreground hover:bg-accent">
-            <FileText className="h-4 w-4 text-primary" />Quick Note
-          </Button>
-          <Button variant="outline" onClick={() => setLinkOpen(true)} className="h-12 rounded-xl border-primary/30 bg-card text-foreground hover:bg-accent">
-            <LinkIcon className="h-4 w-4 text-primary" />Save Link
-          </Button>
-          <Button variant="outline" onClick={pasteFromClipboard} className="h-12 rounded-xl border-primary/30 bg-card text-foreground hover:bg-accent">
-            <Clipboard className="h-4 w-4 text-primary" />Paste Text
-          </Button>
+          {/* Right Column: Sidebar */}
+          <div className="space-y-8">
+            <div className="rounded-2xl bg-card p-6 shadow-card">
+              <h3 className="text-sm font-semibold text-foreground uppercase tracking-widest mb-6 border-b pb-2">Quick Actions</h3>
+              <div className="space-y-4">
+                <button
+                  onClick={() => setNoteOpen(true)}
+                  className="group w-full flex items-center gap-4 p-4 rounded-xl bg-sky-soft/50 hover:bg-sky-soft/80 transition-all border border-border/50 hover:border-primary/40 shadow-sm"
+                >
+                  <div className="bg-sky-soft p-2.5 rounded-lg text-primary shadow-sm group-hover:scale-110 transition-transform">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <span className="font-bold text-foreground">Quick Note</span>
+                </button>
+                <button
+                  onClick={() => setLinkOpen(true)}
+                  className="group w-full flex items-center gap-4 p-4 rounded-xl bg-sky-soft/50 hover:bg-sky-soft/80 transition-all border border-border/50 hover:border-primary/40 shadow-sm"
+                >
+                  <div className="bg-sky-soft p-2.5 rounded-lg text-primary shadow-sm group-hover:scale-110 transition-transform">
+                    <LinkIcon className="h-5 w-5" />
+                  </div>
+                  <span className="font-bold text-foreground">Save Link</span>
+                </button>
+                <button
+                  onClick={pasteFromClipboard}
+                  className="group w-full flex items-center gap-4 p-4 rounded-xl bg-sky-soft/50 hover:bg-sky-soft/80 transition-all border border-border/50 hover:border-primary/40 shadow-sm"
+                >
+                  <div className="bg-sky-soft p-2.5 rounded-lg text-primary shadow-sm group-hover:scale-110 transition-transform">
+                    <Clipboard className="h-5 w-5" />
+                  </div>
+                  <span className="font-bold text-foreground">Paste Text</span>
+                </button>
+              </div>
+            </div>
+
+            <StorageBar used={usedBytes} limit={limitBytes} />
+          </div>
         </div>
 
-        <StorageBar used={usedBytes} limit={limitBytes} />
-
-        {/* Filters & sort */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
+        {/* Filters and Grid Area */}
+        <div className="space-y-8">
+          <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide py-4 px-2">
             {FILTERS.map((f) => (
               <button
                 key={f.id}
                 onClick={() => setFilter(f.id)}
                 className={cn(
-                  "rounded-full border px-3 py-1.5 text-xs font-medium transition-base",
+                  "rounded-full px-6 py-2.5 text-sm font-bold whitespace-nowrap transition-all duration-300",
                   filter === f.id
-                    ? "border-primary bg-primary text-primary-foreground shadow-card"
-                    : "border-input bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                    ? "bg-white text-primary shadow-lg border border-primary/5 -translate-y-0.5"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 )}
               >
                 {f.label}
+                {f.id === "pinned" && <PinIcon className="inline ml-2 h-3.5 w-3.5 fill-current" />}
               </button>
             ))}
           </div>
-          <Select value={sort} onValueChange={(v) => setSort(v as SortType)}>
-            <SelectTrigger className="w-[180px] rounded-lg">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="recent">Most Recent</SelectItem>
-              <SelectItem value="oldest">Oldest</SelectItem>
-              <SelectItem value="az"><ArrowDownAZ className="mr-2 inline h-3 w-3" />A–Z</SelectItem>
-              <SelectItem value="size_desc"><ArrowDownWideNarrow className="mr-2 inline h-3 w-3" />Size (Largest)</SelectItem>
-              <SelectItem value="size_asc">Size (Smallest)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
 
-        {/* Grid */}
-        {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-        ) : visible.length === 0 ? (
-          <EmptyState hasItems={items.length > 0} />
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {visible.map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                onTogglePin={togglePin}
-                onDelete={(i) => setConfirmDelete(i)}
-                onOpen={(i) => setDetailItem(i)}
-              />
-            ))}
-          </div>
-        )}
+          {loading ? (
+            <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+          ) : visible.length === 0 ? (
+            <EmptyState hasItems={items.length > 0} />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
+              {visible.map((item) => (
+                <ItemCard
+                  key={item.id}
+                  item={item}
+                  onTogglePin={togglePin}
+                  onDelete={(i) => setConfirmDelete(i)}
+                  onOpen={(i) => setDetailItem(i)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </main>
 
       <NoteModal open={noteOpen} onOpenChange={setNoteOpen} userId={userId} onCreated={fetchAll} />
@@ -369,7 +404,7 @@ function Dashboard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </div >
   );
 }
 
