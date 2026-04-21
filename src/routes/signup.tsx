@@ -19,6 +19,20 @@ function SignupPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    // Force light theme for the signup page
+    const hadDark = document.documentElement.classList.contains("dark");
+    document.documentElement.classList.remove("dark");
+
+    return () => {
+      // Restore theme preference when leaving the page
+      const savedTheme = localStorage.getItem("theme");
+      if (savedTheme === "dark" || (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+        document.documentElement.classList.add("dark");
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!loading && user) navigate({ to: "/dashboard" });
   }, [user, loading, navigate]);
 
