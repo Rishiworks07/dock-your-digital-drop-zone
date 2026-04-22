@@ -207,3 +207,13 @@
 .infinity-glow {
   filter: drop-shadow(0 0 4px var(--primary-glow)) drop-shadow(0 0 2px var(--primary));
 }
+
+@keyframes dash-scroll {
+  from {
+    stroke-dashoffset: 200;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}

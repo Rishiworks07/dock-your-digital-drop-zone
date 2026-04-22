@@ -69,40 +69,83 @@ function Dashboard() {
   const [confirmDelete, setConfirmDelete] = useState<Item | null>(null);
   const { theme, toggleTheme } = useTheme();
 
+  // Sync states
+  const [syncState, setSyncState] = useState<"synced" | "pending" | "syncing">("synced");
+  const syncTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   // Debounce search
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
     return () => clearTimeout(t);
   }, [search]);
 
-  const fetchAll = useCallback(async () => {
-    const [itemsRes, storageRes] = await Promise.all([
-      supabase.from("items").select("*").order("created_at", { ascending: false }),
-      supabase.from("user_storage").select("*").eq("user_id", userId).maybeSingle(),
-    ]);
-    if (itemsRes.error) toast.error(itemsRes.error.message);
-    else setItems((itemsRes.data ?? []) as Item[]);
-    if (storageRes.data) {
-      setUsedBytes(Number(storageRes.data.used_bytes));
-      setLimitBytes(Number(storageRes.data.limit_bytes));
+  const fetchAll = useCallback(async (isAutoSync = false) => {
+    if (!isAutoSync) setSyncState("syncing");
+
+    try {
+      await Promise.all([
+        (async () => {
+          const [itemsRes, storageRes] = await Promise.all([
+            supabase.from("items").select("*").order("created_at", { ascending: false }),
+            supabase.from("user_storage").select("*").eq("user_id", userId).maybeSingle(),
+          ]);
+
+          if (itemsRes.error) toast.error(itemsRes.error.message);
+          else setItems((itemsRes.data ?? []) as Item[]);
+
+          if (storageRes.data) {
+            setUsedBytes(Number(storageRes.data.used_bytes));
+            setLimitBytes(Number(storageRes.data.limit_bytes));
+          }
+          setLoading(false);
+        })(),
+        !isAutoSync ? new Promise(resolve => setTimeout(resolve, 3000)) : Promise.resolve()
+      ]);
+    } catch (error) {
+      console.error("Sync error:", error);
+    } finally {
+      setSyncState("synced");
     }
-    setLoading(false);
   }, [userId]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  const handleManualSync = useCallback(() => {
+    if (syncTimerRef.current) {
+      clearTimeout(syncTimerRef.current);
+      syncTimerRef.current = null;
+    }
+    fetchAll();
+  }, [fetchAll]);
+
+  useEffect(() => {
+    fetchAll(true); // Initial load is "auto" to avoid animation
+  }, [fetchAll]);
 
   // Realtime sync
   useEffect(() => {
     const channel = supabase
       .channel("items-rt")
       .on("postgres_changes", { event: "*", schema: "public", table: "items", filter: `user_id=eq.${userId}` }, () => {
-        fetchAll();
+        // Set state to pending
+        setSyncState("pending");
+
+        // Clear existing timer if any
+        if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+
+        // Set 10s auto-sync timer
+        syncTimerRef.current = setTimeout(() => {
+          fetchAll();
+          syncTimerRef.current = null;
+        }, 10000);
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "user_storage", filter: `user_id=eq.${userId}` }, () => {
         fetchAll();
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    };
   }, [userId, fetchAll]);
 
   const handleFiles = useCallback(async (files: File[]) => {
@@ -242,44 +285,115 @@ function Dashboard() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="relative overflow-hidden hidden lg:flex items-center gap-3 mr-4 px-3 py-1.5 rounded-full bg-sky-soft/40 border border-border/50 shadow-sm transition-all duration-300 hover:bg-sky-soft/70 hover:shadow-lift hover:-translate-y-0.5 cursor-default group">
-              {/* Infinity light animation overlay (hover only) */}
+            <button
+              onClick={handleManualSync}
+              disabled={syncState === "syncing"}
+              className={cn(
+                "relative overflow-hidden hidden lg:flex items-center gap-3 mr-4 px-3 py-1.5 rounded-full border shadow-sm transition-all duration-500 group min-w-[155px] justify-center",
+                syncState === "synced" && "bg-sky-soft/40 border-border/50 hover:bg-sky-soft/70 hover:shadow-lift hover:-translate-y-0.5",
+                syncState === "pending" && "bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:-translate-y-0.5",
+                syncState === "syncing" && "bg-transparent border-transparent shadow-none cursor-wait"
+              )}
+            >
+              {/* Infinity light animation overlay */}
               <svg
-                className="pointer-events-none absolute inset-0 h-full w-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                className={cn(
+                  "pointer-events-none absolute inset-0 h-full w-full transition-opacity duration-300",
+                  syncState === "synced" ? "opacity-0 group-hover:opacity-100" : "opacity-100"
+                )}
                 viewBox="0 0 100 40"
                 preserveAspectRatio="none"
                 aria-hidden="true"
               >
                 <defs>
-                  <filter id="infinity-blur" x="-50%" y="-50%" width="200%" height="200%">
-                    <feGaussianBlur stdDeviation="0.8" />
+                  <filter id="infinity-glow-strong" x="-100%" y="-100%" width="300%" height="300%">
+                    <feGaussianBlur stdDeviation={syncState === "syncing" ? "1.5" : "0.8"} result="blur" />
+                    <feComponentTransfer in="blur">
+                      <feFuncA type="linear" slope={syncState === "syncing" ? "3" : "1.5"} />
+                    </feComponentTransfer>
+                    <feMerge>
+                      <feMergeNode />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
                   </filter>
+                  <linearGradient id="comet-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="transparent" />
+                    <stop offset="50%" stopColor="#6366f1" />
+                    <stop offset="100%" stopColor="#ffffff" />
+                  </linearGradient>
                 </defs>
                 <path
                   id="infinity-path"
                   d="M 20,20 C 20,5 45,5 50,20 C 55,35 80,35 80,20 C 80,5 55,5 50,20 C 45,35 20,35 20,20 Z"
                   fill="none"
-                  stroke="var(--primary)"
-                  strokeOpacity="0.18"
+                  stroke={
+                    syncState === "synced" ? "var(--primary)" :
+                      syncState === "pending" ? "#f59e0b" : "#6366f1"
+                  }
+                  strokeOpacity="0.1"
                   strokeWidth="0.6"
                 />
-                <circle r="1.6" fill="var(--primary-glow)" filter="url(#infinity-blur)" className="infinity-glow">
-                  <animateMotion dur="2.4s" repeatCount="indefinite" rotate="auto">
-                    <mpath href="#infinity-path" />
-                  </animateMotion>
-                </circle>
-                <circle r="0.9" fill="var(--primary)">
-                  <animateMotion dur="2.4s" repeatCount="indefinite" rotate="auto">
-                    <mpath href="#infinity-path" />
-                  </animateMotion>
-                </circle>
+                {/* The "Comet" Path */}
+                <path
+                  d="M 20,20 C 20,5 45,5 50,20 C 55,35 80,35 80,20 C 80,5 55,5 50,20 C 45,35 20,35 20,20 Z"
+                  fill="none"
+                  stroke="url(#comet-gradient)"
+                  strokeWidth={syncState === "syncing" ? "2.5" : "1.2"}
+                  strokeDasharray={syncState === "syncing" ? "30 70" : "10 90"}
+                  strokeDashoffset="0"
+                  strokeLinecap="round"
+                  filter="url(#infinity-glow-strong)"
+                  pathLength="100"
+                  className={cn(
+                    "transition-all duration-500",
+                    syncState === "synced" ? "opacity-0" : "opacity-100"
+                  )}
+                  style={{
+                    animation: `dash-scroll ${syncState === "syncing" ? '0.8s' : '2.4s'} linear infinite`
+                  }}
+                />
+                {/* Synced State Circles (Original Style) */}
+                {syncState === "synced" && (
+                  <>
+                    <circle r="1.6" fill="var(--primary-glow)" filter="url(#infinity-blur)" className="infinity-glow">
+                      <animateMotion dur="2.4s" repeatCount="indefinite" rotate="auto">
+                        <mpath href="#infinity-path" />
+                      </animateMotion>
+                    </circle>
+                    <circle r="0.9" fill="var(--primary)">
+                      <animateMotion dur="2.4s" repeatCount="indefinite" rotate="auto">
+                        <mpath href="#infinity-path" />
+                      </animateMotion>
+                    </circle>
+                  </>
+                )}
               </svg>
-              <div className="relative flex items-center justify-center z-10">
-                <div className="h-2 w-2 rounded-full bg-primary" />
-                <div className="absolute h-4 w-4 rounded-full bg-primary/40 animate-pulse-soft" />
+              <div className={cn(
+                "relative flex items-center justify-center z-10 transition-all duration-300",
+                syncState === "syncing" ? "opacity-0 scale-50" : "opacity-100 scale-100"
+              )}>
+                <div className={cn(
+                  "h-2 w-2 rounded-full transition-colors duration-300",
+                  syncState === "synced" && "bg-primary",
+                  syncState === "pending" && "bg-amber-500 animate-bounce",
+                  syncState === "syncing" && "bg-indigo-500 animate-spin"
+                )} />
+                <div className={cn(
+                  "absolute h-4 w-4 rounded-full transition-all duration-300 animate-pulse-soft",
+                  syncState === "synced" && "bg-primary/40",
+                  syncState === "pending" && "bg-amber-500/40",
+                  syncState === "syncing" && "bg-indigo-500/40"
+                )} />
               </div>
-              <span className="relative z-10 text-[11px] font-bold text-primary uppercase tracking-widest">Workspace Synced</span>
-            </div>
+              <span className={cn(
+                "relative z-10 text-[11px] font-bold uppercase tracking-widest transition-all duration-300 whitespace-nowrap",
+                syncState === "synced" && "text-primary",
+                syncState === "pending" && "text-amber-600",
+                syncState === "syncing" && "text-indigo-600 opacity-0 scale-95"
+              )}>
+                Sync your Workspace
+              </span>
+            </button>
 
             <div className="flex items-center gap-1.5">
               <button
@@ -417,14 +531,20 @@ function Dashboard() {
       <ItemDetailModal
         item={detailItem}
         onOpenChange={(o) => !o && setDetailItem(null)}
-        onDelete={(i) => setConfirmDelete(i)}
+        onDelete={(i) => {
+          setDetailItem(null);
+          setConfirmDelete(i);
+        }}
       />
       <AlertDialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
+        <AlertDialogContent className="rounded-2xl max-w-lg overflow-hidden">
+          <AlertDialogHeader className="min-w-0">
             <AlertDialogTitle>Delete this item?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {confirmDelete?.title || confirmDelete?.file_name || "This item"} — this cannot be undone.
+            <AlertDialogDescription className="flex flex-col gap-1 min-w-0">
+              <span className="font-medium text-foreground truncate block w-full">
+                {confirmDelete?.title || confirmDelete?.file_name || "This item"}
+              </span>
+              <span className="text-xs">This cannot be undone.</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

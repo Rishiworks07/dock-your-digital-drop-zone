@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { fileExtBadge, fileTypeColor, formatBytes, formatRelative, getDomain } from "@/lib/item-helpers";
+import { fileExtBadge, fileTypeColor, formatBytes, formatRelative, getDomain, downloadFile } from "@/lib/item-helpers";
 import type { Item } from "./types";
 import { toast } from "sonner";
 
@@ -66,13 +66,10 @@ export function ItemCard({ item, onTogglePin, onDelete, onOpen }: Props) {
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={copyContent}><Copy className="h-4 w-4" />Copy</DropdownMenuItem>
             {item.file_url && (
-              <DropdownMenuItem onClick={() => window.open(item.file_url!, "_blank")}>
+              <DropdownMenuItem onClick={() => downloadFile(item.file_url!, item.file_name || "download")}>
                 <Download className="h-4 w-4" />Download
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem onClick={() => onDelete(item)} className="text-destructive">
-              <Trash2 className="h-4 w-4" />Delete
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

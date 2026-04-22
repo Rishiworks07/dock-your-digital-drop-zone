@@ -3,7 +3,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Copy, Download, ExternalLink, Trash2 } from "lucide-react";
-import { formatBytes, formatRelative, getDomain } from "@/lib/item-helpers";
+import { formatBytes, formatRelative, getDomain, downloadFile } from "@/lib/item-helpers";
 import { toast } from "sonner";
 import type { Item } from "./types";
 
@@ -74,7 +74,7 @@ export function ItemDetailModal({ item, onOpenChange, onDelete }: Props) {
         <DialogFooter>
           <Button variant="outline" onClick={copy}><Copy className="h-4 w-4" />Copy</Button>
           {item.file_url && (
-            <Button variant="outline" onClick={() => window.open(item.file_url!, "_blank")}>
+            <Button variant="outline" onClick={() => downloadFile(item.file_url!, item.file_name || "download")}>
               <Download className="h-4 w-4" />Download
             </Button>
           )}
