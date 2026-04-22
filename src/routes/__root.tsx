@@ -34,12 +34,12 @@ export const Route = createRootRoute({
 
 function RootComponent() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
+    <AuthProvider>
+      <ThemeProvider>
         <Outlet />
         <Toaster position="top-right" richColors closeButton />
-      </AuthProvider>
-    </ThemeProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
 
