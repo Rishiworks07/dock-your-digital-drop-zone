@@ -191,3 +191,7 @@
 .animate-pulse-soft {
   animation: pulse-soft 2s infinite ease-in-out;
 }
+
+.infinity-glow {
+  filter: drop-shadow(0 0 4px var(--primary-glow)) drop-shadow(0 0 2px var(--primary));
+}
