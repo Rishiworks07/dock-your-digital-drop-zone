@@ -1,9 +1,9 @@
-import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { Outlet, Link, createRootRoute } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { Toaster } from "@/components/ui/sonner";
 
-import appCss from "../styles.css?url";
+import "../styles.css";
 
 function NotFoundComponent() {
   return (
@@ -28,47 +28,9 @@ function NotFoundComponent() {
 }
 
 export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Dock — Your universal drop zone" },
-      { name: "description", content: "Drop, paste, or save anything to one beautiful, searchable space." },
-      { property: "og:title", content: "Dock — Your universal drop zone" },
-      { name: "twitter:title", content: "Dock — Your universal drop zone" },
-      { property: "og:description", content: "Drop, paste, or save anything to one beautiful, searchable space." },
-      { name: "twitter:description", content: "Drop, paste, or save anything to one beautiful, searchable space." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/3ec3e685-eace-4cb3-b09e-384ca1d57d57/id-preview-ce2599b5--e337c2b3-c0e4-45d3-8512-5bcde1a773c3.lovable.app-1776837906686.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/3ec3e685-eace-4cb3-b09e-384ca1d57d57/id-preview-ce2599b5--e337c2b3-c0e4-45d3-8512-5bcde1a773c3.lovable.app-1776837906686.png" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:type", content: "website" },
-    ],
-    links: [
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" },
-      { rel: "stylesheet", href: appCss },
-      { rel: "icon", type: "image/png", href: "/favicon.png" },
-    ],
-  }),
-  shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
 });
-
-function RootShell({ children }: { children: React.ReactNode }) {
-  return (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  );
-}
 
 function RootComponent() {
   return (
@@ -80,3 +42,4 @@ function RootComponent() {
     </ThemeProvider>
   );
 }
+
