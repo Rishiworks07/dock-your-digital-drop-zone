@@ -1,2 +1,2 @@
 import .env
-project_id = Vite_Supabase_project_id
+project_id = VITE_SUPABASE_PROJECT_ID
