@@ -242,12 +242,43 @@ function Dashboard() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="hidden lg:flex items-center gap-3 mr-4 px-3 py-1.5 rounded-full bg-sky-soft/40 border border-border/50 shadow-sm transition-all hover:bg-sky-soft/60 cursor-default group">
-              <div className="relative flex items-center justify-center">
+            <div className="relative overflow-hidden hidden lg:flex items-center gap-3 mr-4 px-3 py-1.5 rounded-full bg-sky-soft/40 border border-border/50 shadow-sm transition-all duration-300 hover:bg-sky-soft/70 hover:shadow-lift hover:-translate-y-0.5 cursor-default group">
+              {/* Infinity light animation overlay (hover only) */}
+              <svg
+                className="pointer-events-none absolute inset-0 h-full w-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                viewBox="0 0 100 40"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <defs>
+                  <filter id="infinity-blur" x="-50%" y="-50%" width="200%" height="200%">
+                    <feGaussianBlur stdDeviation="0.8" />
+                  </filter>
+                </defs>
+                <path
+                  id="infinity-path"
+                  d="M 20,20 C 20,5 45,5 50,20 C 55,35 80,35 80,20 C 80,5 55,5 50,20 C 45,35 20,35 20,20 Z"
+                  fill="none"
+                  stroke="var(--primary)"
+                  strokeOpacity="0.18"
+                  strokeWidth="0.6"
+                />
+                <circle r="1.6" fill="var(--primary-glow)" filter="url(#infinity-blur)" className="infinity-glow">
+                  <animateMotion dur="2.4s" repeatCount="indefinite" rotate="auto">
+                    <mpath href="#infinity-path" />
+                  </animateMotion>
+                </circle>
+                <circle r="0.9" fill="var(--primary)">
+                  <animateMotion dur="2.4s" repeatCount="indefinite" rotate="auto">
+                    <mpath href="#infinity-path" />
+                  </animateMotion>
+                </circle>
+              </svg>
+              <div className="relative flex items-center justify-center z-10">
                 <div className="h-2 w-2 rounded-full bg-primary" />
                 <div className="absolute h-4 w-4 rounded-full bg-primary/40 animate-pulse-soft" />
               </div>
-              <span className="text-[11px] font-bold text-primary uppercase tracking-widest">Workspace Synced</span>
+              <span className="relative z-10 text-[11px] font-bold text-primary uppercase tracking-widest">Workspace Synced</span>
             </div>
 
             <div className="flex items-center gap-1.5">
