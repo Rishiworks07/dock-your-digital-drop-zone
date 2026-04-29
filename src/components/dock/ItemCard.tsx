@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Code2, Download, ExternalLink, FileText, Image as ImageIcon,
-  Link as LinkIcon, MoreVertical, PinIcon, PinOff, Play, Trash2, Copy,
+  Link as LinkIcon, MoreVertical, PinIcon, PinOff, Play, Trash2, Copy, Archive, Share, AlertTriangle
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -17,9 +17,42 @@ interface Props {
   onTogglePin: (item: Item) => void;
   onDelete: (item: Item) => void;
   onOpen: (item: Item) => void;
+  onMoveToVault?: (item: Item) => void;
 }
 
-export function ItemCard({ item, onTogglePin, onDelete, onOpen }: Props) {
+function useCountdown(createdAt: string) {
+  const [timeLeft, setTimeLeft] = useState("");
+  const [isWarning, setIsWarning] = useState(false);
+
+  useEffect(() => {
+    const expiresAt = new Date(createdAt).getTime() + 24 * 60 * 60 * 1000;
+
+    const updateTimer = () => {
+      const now = Date.now();
+      const diff = expiresAt - now;
+
+      if (diff <= 0) {
+        setTimeLeft("Expired");
+        setIsWarning(true);
+        return;
+      }
+
+      const h = Math.floor(diff / (1000 * 60 * 60));
+      const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      
+      setTimeLeft(h > 0 ? `${h}h ${m}m` : `${m}m`);
+      setIsWarning(h < 1);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 60000);
+    return () => clearInterval(interval);
+  }, [createdAt]);
+
+  return { timeLeft, isWarning };
+}
+
+export function ItemCard({ item, onTogglePin, onDelete, onOpen, onMoveToVault }: Props) {
   const [imgError, setImgError] = useState(false);
 
   const copyContent = async () => {
@@ -37,6 +70,9 @@ export function ItemCard({ item, onTogglePin, onDelete, onOpen }: Props) {
   const isLink = item.type === "link";
   const isNote = item.type === "note" || item.type === "code";
   const isPDF = item.file_name?.toLowerCase().endsWith(".pdf");
+  
+  const isTemporary = !item.is_vaulted && !item.space_id;
+  const { timeLeft, isWarning } = useCountdown(item.created_at);
 
   return (
     <div
@@ -46,6 +82,19 @@ export function ItemCard({ item, onTogglePin, onDelete, onOpen }: Props) {
       )}
       onClick={() => onOpen(item)}
     >
+      {/* Temporary Item Badge */}
+      {isTemporary && (
+        <div className={cn(
+          "absolute right-3 bottom-3 z-20 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase backdrop-blur-md border shadow-sm transition-all duration-500",
+          isWarning 
+            ? "bg-destructive/10 text-destructive border-destructive/20 animate-pulse" 
+            : "bg-background/80 text-foreground border-border/50"
+        )}>
+          {isWarning ? <AlertTriangle className="h-3 w-3" /> : null}
+          {isWarning ? `⚠ Deletes in ${timeLeft}` : `Deletes in ${timeLeft}`}
+        </div>
+      )}
+
       {/* Action Menu (Visible on hover) */}
       <div className="absolute right-3 top-3 z-10 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300">
         <button
@@ -63,13 +112,22 @@ export function ItemCard({ item, onTogglePin, onDelete, onOpen }: Props) {
               <MoreVertical className="h-4 w-4" />
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={copyContent}><Copy className="h-4 w-4" />Copy</DropdownMenuItem>
-            {item.file_url && (
-              <DropdownMenuItem onClick={() => downloadFile(item.file_url!, item.file_name || "download")}>
-                <Download className="h-4 w-4" />Download
+          <DropdownMenuContent align="end" className="w-48">
+            {isTemporary && onMoveToVault && (
+              <DropdownMenuItem onClick={() => onMoveToVault(item)}>
+                <Archive className="h-4 w-4 mr-2 text-primary" /> Move to Vault
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem onClick={copyContent}><Copy className="h-4 w-4 mr-2" /> Share</DropdownMenuItem>
+            {item.file_url && (
+              <DropdownMenuItem onClick={() => downloadFile(item.file_url!, item.file_name || "download")}>
+                <Download className="h-4 w-4 mr-2" /> Download
+              </DropdownMenuItem>
+            )}
+            <div className="h-px bg-border my-1" />
+            <DropdownMenuItem onClick={() => onDelete(item)} className="text-destructive focus:text-destructive">
+              <Trash2 className="h-4 w-4 mr-2" /> Delete Now
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -90,7 +148,10 @@ export function ItemCard({ item, onTogglePin, onDelete, onOpen }: Props) {
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-bold truncate max-w-[150px]">{item.file_name}</span>
-                <span className="text-[10px] text-muted-foreground">{formatBytes(item.file_size)} • {formatRelative(item.created_at)}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {formatBytes(item.file_size)} • {formatRelative(item.created_at)}
+                  {item.space_id && item.profiles?.username && ` • @${item.profiles.username}`}
+                </span>
               </div>
             </div>
           </div>
@@ -104,6 +165,9 @@ export function ItemCard({ item, onTogglePin, onDelete, onOpen }: Props) {
             </div>
             <h3 className="text-base font-bold text-foreground mb-2 line-clamp-2">{item.link_title || item.title || "Untitled Link"}</h3>
             <p className="text-sm text-muted-foreground line-clamp-3 mb-4">{item.content || "No description available"}</p>
+            {item.space_id && item.profiles?.username && (
+              <span className="text-[10px] text-muted-foreground mb-4">Added by @{item.profiles.username}</span>
+            )}
             {item.link_image && !imgError && (
               <img
                 src={item.link_image}
@@ -124,8 +188,9 @@ export function ItemCard({ item, onTogglePin, onDelete, onOpen }: Props) {
             <div className="text-sm text-muted-foreground line-clamp-[6] whitespace-pre-wrap">
               {item.content}
             </div>
-            <div className="mt-auto pt-4 text-xs text-muted-foreground font-medium">
-              {formatRelative(item.created_at)}
+            <div className="mt-auto pt-4 flex items-center justify-between w-full text-xs text-muted-foreground font-medium">
+              <span>{formatRelative(item.created_at)}</span>
+              {item.space_id && item.profiles?.username && <span>@{item.profiles.username}</span>}
             </div>
           </div>
         ) : (
@@ -142,7 +207,7 @@ export function ItemCard({ item, onTogglePin, onDelete, onOpen }: Props) {
               {item.file_name || item.title || "Untitled File"}
             </h3>
             <div className="mt-auto flex items-center justify-between w-full text-xs text-muted-foreground font-semibold">
-              <span>{formatBytes(item.file_size)}</span>
+              <span className="truncate">{item.space_id && item.profiles?.username ? `@${item.profiles.username}` : formatBytes(item.file_size)}</span>
               <span>{formatRelative(item.created_at)}</span>
             </div>
           </div>

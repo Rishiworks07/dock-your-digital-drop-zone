@@ -13,6 +13,8 @@ interface UploadOptions {
   userId: string;
   usedBytes: number;
   limitBytes: number;
+  spaceId?: string | null;
+  isVaulted?: boolean;
 }
 
 export class UploadError extends Error {
@@ -50,6 +52,8 @@ export async function uploadFileItem(file: File, opts: UploadOptions) {
 
   const insert = {
     user_id: opts.userId,
+    space_id: opts.spaceId || null,
+    is_vaulted: opts.isVaulted || false,
     type,
     title: processed.name,
     file_url,
@@ -69,11 +73,13 @@ export async function uploadFileItem(file: File, opts: UploadOptions) {
   return data;
 }
 
-export async function createNote(userId: string, title: string, content: string, tags: string[] = []) {
+export async function createNote(userId: string, title: string, content: string, tags: string[] = [], spaceId?: string | null, isVaulted?: boolean) {
   const { data, error } = await supabase
     .from("items")
     .insert({
       user_id: userId,
+      space_id: spaceId || null,
+      is_vaulted: isVaulted || false,
       type: "note",
       title: title || content.split("\n")[0].slice(0, 80) || "Untitled note",
       content,
@@ -86,12 +92,14 @@ export async function createNote(userId: string, title: string, content: string,
   return data;
 }
 
-export async function createLink(userId: string, url: string) {
+export async function createLink(userId: string, url: string, spaceId?: string | null, isVaulted?: boolean) {
   const domain = getDomain(url);
   const { data, error } = await supabase
     .from("items")
     .insert({
       user_id: userId,
+      space_id: spaceId || null,
+      is_vaulted: isVaulted || false,
       type: "link",
       title: domain,
       link_url: url,
@@ -104,6 +112,7 @@ export async function createLink(userId: string, url: string) {
   if (error) throw new UploadError(error.message);
   return data;
 }
+
 
 export async function deleteItem(item: { id: string; file_path: string | null }) {
   if (item.file_path) {

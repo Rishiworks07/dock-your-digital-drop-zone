@@ -16,9 +16,14 @@ export interface Item {
   link_image: string | null;
   language: string | null;
   is_pinned: boolean;
+  is_vaulted: boolean;
+  space_id: string | null;
   tags: string[];
   created_at: string;
   updated_at: string;
+  profiles?: {
+    username: string;
+  };
 }
 
 export type FilterType = "all" | "note" | "image" | "file" | "link" | "video" | "pinned";

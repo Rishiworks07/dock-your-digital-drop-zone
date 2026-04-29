@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Anchor, ArrowDownAZ, ArrowDownWideNarrow, Clipboard, FileText,
   Link as LinkIcon, Loader2, LogOut, Search, Settings, User, X, PinIcon,
-  Moon, Sun,
+  Moon, Sun, FolderPlus, Users, AtSign, Crown,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
@@ -27,6 +27,10 @@ import { StorageBar } from "@/components/dock/StorageBar";
 import { ItemCard } from "@/components/dock/ItemCard";
 import { ItemDetailModal } from "@/components/dock/ItemDetailModal";
 import { LinkModal, NoteModal } from "@/components/dock/QuickModals";
+import { NotificationsPanel } from "@/components/dock/NotificationsPanel";
+import { CreateSpaceModal } from "@/components/dock/CreateSpaceModal";
+import { SpaceMembersModal } from "@/components/dock/SpaceMembersModal";
+import { useSharedSpaces, type SharedSpace } from "@/lib/shared-spaces-context";
 import type { FilterType, Item, SortType } from "@/components/dock/types";
 import { createLink, createNote, deleteItem, uploadFileItem } from "@/lib/upload";
 import { isUrl, STORAGE_LIMIT } from "@/lib/item-helpers";
@@ -47,14 +51,18 @@ const FILTERS: { id: FilterType; label: string }[] = [
 ];
 
 function Dashboard() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, profile } = useAuth();
   const navigate = useNavigate();
   const userId = user!.id;
+  const { spaces } = useSharedSpaces();
 
   const [items, setItems] = useState<Item[]>([]);
   const [usedBytes, setUsedBytes] = useState(0);
   const [limitBytes, setLimitBytes] = useState(STORAGE_LIMIT);
   const [loading, setLoading] = useState(true);
+  const [activeSpace, setActiveSpace] = useState<SharedSpace | null>(null);
+  const [activeTab, setActiveTab] = useState<"dock" | "vault">("dock");
+
   const [filter, setFilter] = useState<FilterType>("all");
   const [sort, setSort] = useState<SortType>("recent");
   const [search, setSearch] = useState("");
@@ -65,6 +73,8 @@ function Dashboard() {
 
   const [noteOpen, setNoteOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
+  const [createSpaceOpen, setCreateSpaceOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
   const [detailItem, setDetailItem] = useState<Item | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Item | null>(null);
   const { theme, toggleTheme } = useTheme();
@@ -83,30 +93,50 @@ function Dashboard() {
     if (!isAutoSync) setSyncState("syncing");
 
     try {
-      await Promise.all([
-        (async () => {
-          const [itemsRes, storageRes] = await Promise.all([
-            supabase.from("items").select("*").order("created_at", { ascending: false }),
-            supabase.from("user_storage").select("*").eq("user_id", userId).maybeSingle(),
-          ]);
+      if (activeSpace) {
+        // --- Shared Space Mode ---
+        const [itemsRes, usageRes] = await Promise.all([
+          supabase.from("items").select("*").eq("space_id", activeSpace.id).order("created_at", { ascending: false }),
+          supabase.from("items").select("file_size").eq("space_id", activeSpace.id),
+        ]);
 
-          if (itemsRes.error) toast.error(itemsRes.error.message);
-          else setItems((itemsRes.data ?? []) as Item[]);
+        if (itemsRes.error) toast.error(itemsRes.error.message);
+        else setItems((itemsRes.data ?? []) as Item[]);
 
-          if (storageRes.data) {
-            setUsedBytes(Number(storageRes.data.used_bytes));
-            setLimitBytes(Number(storageRes.data.limit_bytes));
-          }
-          setLoading(false);
-        })(),
-        !isAutoSync ? new Promise(resolve => setTimeout(resolve, 3000)) : Promise.resolve()
-      ]);
+        const totalUsed = (usageRes.data ?? []).reduce((acc, curr) => acc + (curr.file_size || 0), 0);
+        setUsedBytes(totalUsed);
+        setLimitBytes(1024 * 1024 * 1024); // 1GB
+        setLoading(false);
+      } else {
+        // --- Personal Mode (Dock or Vault) ---
+        const isVault = activeTab === "vault";
+        const itemsRes = await supabase
+          .from("items")
+          .select("*")
+          .eq("user_id", userId)
+          .is("space_id", null)
+          .eq("is_vaulted", isVault)
+          .order("created_at", { ascending: false });
+
+        if (itemsRes.error) {
+          toast.error(itemsRes.error.message);
+        } else {
+          const fetchedItems = (itemsRes.data ?? []) as Item[];
+          setItems(fetchedItems);
+          
+          // Calculate used bytes from fetched items directly
+          const totalUsed = fetchedItems.reduce((acc, curr) => acc + (curr.file_size || 0), 0);
+          setUsedBytes(totalUsed);
+          setLimitBytes(isVault ? 200 * 1024 * 1024 : STORAGE_LIMIT); // 200MB Vault, 5GB Dock
+        }
+        setLoading(false);
+      }
     } catch (error) {
       console.error("Sync error:", error);
     } finally {
       setSyncState("synced");
     }
-  }, [userId]);
+  }, [userId, activeSpace, activeTab]);
 
   const handleManualSync = useCallback(() => {
     if (syncTimerRef.current) {
@@ -124,21 +154,20 @@ function Dashboard() {
   useEffect(() => {
     const channel = supabase
       .channel("items-rt")
-      .on("postgres_changes", { event: "*", schema: "public", table: "items", filter: `user_id=eq.${userId}` }, () => {
-        // Set state to pending
-        setSyncState("pending");
-
-        // Clear existing timer if any
-        if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-
-        // Set 10s auto-sync timer
-        syncTimerRef.current = setTimeout(() => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "items" }, (payload) => {
+        // If in space mode, only sync if payload matches current space
+        if (activeSpace) {
+          if (payload.new && (payload.new as any).space_id === activeSpace.id) fetchAll();
+          if (payload.old && (payload.old as any).space_id === activeSpace.id) fetchAll();
+          return;
+        }
+        // If in personal mode, only sync if payload has no space_id and matches user
+        if ((payload.new as any)?.user_id === userId && !(payload.new as any)?.space_id) {
           fetchAll();
-          syncTimerRef.current = null;
-        }, 10000);
+        }
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "user_storage", filter: `user_id=eq.${userId}` }, () => {
-        fetchAll();
+        if (!activeSpace) fetchAll();
       })
       .subscribe();
 
@@ -146,7 +175,7 @@ function Dashboard() {
       supabase.removeChannel(channel);
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     };
-  }, [userId, fetchAll]);
+  }, [userId, activeSpace, activeTab, fetchAll]);
 
   const handleFiles = useCallback(async (files: File[]) => {
     setUploading(true);
@@ -155,7 +184,13 @@ function Dashboard() {
     let success = 0;
     for (let i = 0; i < files.length; i++) {
       try {
-        const item = await uploadFileItem(files[i], { userId, usedBytes: usedSoFar, limitBytes });
+        const item = await uploadFileItem(files[i], { 
+          userId, 
+          usedBytes: usedSoFar, 
+          limitBytes,
+          spaceId: activeSpace?.id,
+          isVaulted: !activeSpace && activeTab === "vault"
+        });
         usedSoFar += item.file_size;
         success++;
       } catch (e) {
@@ -166,7 +201,7 @@ function Dashboard() {
     setUploading(false);
     if (success) toast.success(`${success} item${success > 1 ? "s" : ""} uploaded`);
     fetchAll();
-  }, [userId, usedBytes, limitBytes, fetchAll]);
+  }, [userId, usedBytes, limitBytes, fetchAll, activeSpace, activeTab]);
 
   // Global paste detection
   useEffect(() => {
@@ -184,11 +219,12 @@ function Dashboard() {
       if (!text) return;
       e.preventDefault();
       try {
+        const isVaulted = !activeSpace && activeTab === "vault";
         if (isUrl(text)) {
-          await createLink(userId, text.trim());
+          await createLink(userId, text.trim(), activeSpace?.id, isVaulted);
           toast.success("Link saved");
         } else {
-          await createNote(userId, "", text);
+          await createNote(userId, "", text, [], activeSpace?.id, isVaulted);
           toast.success("Note saved");
         }
         fetchAll();
@@ -198,12 +234,21 @@ function Dashboard() {
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
-  }, [userId, handleFiles, fetchAll]);
+  }, [userId, handleFiles, fetchAll, activeSpace, activeTab]);
 
   const togglePin = async (item: Item) => {
     const { error } = await supabase.from("items").update({ is_pinned: !item.is_pinned }).eq("id", item.id);
     if (error) toast.error(error.message);
     else fetchAll();
+  };
+
+  const moveToVault = async (item: Item) => {
+    const { error } = await supabase.from("items").update({ is_vaulted: true }).eq("id", item.id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Moved to Vault");
+      fetchAll();
+    }
   };
 
   const performDelete = async (item: Item) => {
@@ -222,11 +267,12 @@ function Dashboard() {
     try {
       const text = await navigator.clipboard.readText();
       if (!text) { toast.error("Clipboard is empty"); return; }
+      const isVaulted = !activeSpace && activeTab === "vault";
       if (isUrl(text)) {
-        await createLink(userId, text.trim());
+        await createLink(userId, text.trim(), activeSpace?.id, isVaulted);
         toast.success("Link saved");
       } else {
-        await createNote(userId, "", text);
+        await createNote(userId, "", text, [], activeSpace?.id, isVaulted);
         toast.success("Note saved");
       }
       fetchAll();
@@ -269,9 +315,9 @@ function Dashboard() {
       {/* Top nav */}
       <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/50 px-6 py-4">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-8">
-          <Link to="/dashboard" className="flex items-center gap-2">
+          <button onClick={() => setActiveSpace(null)} className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-primary">Dock</h1>
-          </Link>
+          </button>
 
           <div className="relative flex-1 max-w-xl">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -285,6 +331,9 @@ function Dashboard() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Notifications bell */}
+            <NotificationsPanel />
+
             <button
               onClick={handleManualSync}
               disabled={syncState === "syncing"}
@@ -396,6 +445,12 @@ function Dashboard() {
             </button>
 
             <div className="flex items-center gap-1.5">
+              {/* Username display */}
+              {profile?.username && (
+                <span className="hidden md:flex items-center gap-1 text-xs font-bold text-muted-foreground bg-muted/40 rounded-full px-3 py-1.5">
+                  <AtSign className="h-3 w-3" />{profile.username}
+                </span>
+              )}
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all"
@@ -441,6 +496,62 @@ function Dashboard() {
       </header>
 
       <main className="mx-auto max-w-7xl px-6 py-10 space-y-8">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            {activeSpace ? (
+              <>
+                <button 
+                  onClick={() => setActiveSpace(null)}
+                  className="text-xs font-bold text-primary hover:underline"
+                >
+                  My Dock
+                </button>
+                <span className="text-muted-foreground">/</span>
+                <h2 className="text-xl font-bold text-foreground">{activeSpace.name}</h2>
+                {activeSpace.role === "owner" && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setMembersOpen(true)}
+                    className="ml-2 h-7 gap-1.5 rounded-full bg-primary/10 text-primary hover:bg-primary/20 text-[10px] font-black uppercase tracking-wider px-3"
+                  >
+                    <Users className="h-3 w-3" /> Manage Members
+                  </Button>
+                )}
+              </>
+            ) : (
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setActiveTab("dock")}
+                  className={cn(
+                    "text-xl font-bold transition-all",
+                    activeTab === "dock" ? "text-foreground" : "text-muted-foreground hover:text-foreground/80"
+                  )}
+                >
+                  Temporary Dock
+                </button>
+                <div className="h-5 w-px bg-border"></div>
+                <button
+                  onClick={() => setActiveTab("vault")}
+                  className={cn(
+                    "text-xl font-bold transition-all",
+                    activeTab === "vault" ? "text-foreground" : "text-muted-foreground hover:text-foreground/80"
+                  )}
+                >
+                  Private Vault
+                </button>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {activeSpace 
+              ? "Shared with your partners" 
+              : activeTab === "dock" 
+                ? "Auto-deletes items after 24 hours" 
+                : "Permanent, secure storage (200MB limit)"}
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
           {/* Left Column: Upload Zone */}
           <div className="lg:col-span-2">
@@ -486,6 +597,61 @@ function Dashboard() {
           </div>
         </div>
 
+        {/* ── Shared Spaces Section ── */}
+        {!activeSpace && (
+          <section className="space-y-6 pt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-bold text-foreground uppercase tracking-wider">Shared Spaces</h2>
+                {spaces.length > 0 && (
+                  <span className="rounded-full bg-primary/10 text-primary text-xs font-bold px-2 py-0.5">{spaces.length}</span>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  if (spaces.filter(s => s.role === "owner").length >= 5) {
+                    toast.error("You can only create up to 5 shared spaces.");
+                    return;
+                  }
+                  setCreateSpaceOpen(true);
+                }}
+                className="flex items-center gap-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold px-4 py-2 transition-all hover:-translate-y-0.5"
+              >
+                <FolderPlus className="h-3.5 w-3.5" /> New Space
+              </button>
+            </div>
+
+            {spaces.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-primary/20 bg-card/50 py-12 text-center">
+                <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-3">
+                  <Users className="h-7 w-7 text-primary/60" />
+                </div>
+                <p className="font-bold text-foreground text-sm">No shared spaces yet</p>
+                <p className="text-xs text-muted-foreground mt-1 max-w-xs">Create a space to collaborate with others or wait for an invite.</p>
+                <button
+                  onClick={() => {
+                    if (spaces.filter(s => s.role === "owner").length >= 5) {
+                      toast.error("You can only create up to 5 shared spaces.");
+                      return;
+                    }
+                    setCreateSpaceOpen(true);
+                  }}
+                  className="mt-4 flex items-center gap-2 rounded-xl bg-primary text-white text-xs font-bold px-4 py-2.5 transition-all hover:-translate-y-0.5 shadow-lift"
+                >
+                  <FolderPlus className="h-3.5 w-3.5" /> Create First Space
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+                {spaces.map(space => (
+                  <SpaceCard key={space.id} space={space} onClick={() => setActiveSpace(space)} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Filters and Grid Area */}
         <div className="space-y-8">
           <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-hide py-4 px-2">
@@ -519,6 +685,7 @@ function Dashboard() {
                   onTogglePin={togglePin}
                   onDelete={(i) => setConfirmDelete(i)}
                   onOpen={(i) => setDetailItem(i)}
+                  onMoveToVault={moveToVault}
                 />
               ))}
             </div>
@@ -526,8 +693,10 @@ function Dashboard() {
         </div>
       </main>
 
-      <NoteModal open={noteOpen} onOpenChange={setNoteOpen} userId={userId} onCreated={fetchAll} />
-      <LinkModal open={linkOpen} onOpenChange={setLinkOpen} userId={userId} onCreated={fetchAll} />
+      <CreateSpaceModal open={createSpaceOpen} onOpenChange={setCreateSpaceOpen} />
+      <SpaceMembersModal open={membersOpen} onOpenChange={setMembersOpen} space={activeSpace} onUpdate={fetchAll} />
+      <NoteModal open={noteOpen} onOpenChange={setNoteOpen} userId={userId} onCreated={fetchAll} spaceId={activeSpace?.id} />
+      <LinkModal open={linkOpen} onOpenChange={setLinkOpen} userId={userId} onCreated={fetchAll} spaceId={activeSpace?.id} />
       <ItemDetailModal
         item={detailItem}
         onOpenChange={(o) => !o && setDetailItem(null)}
@@ -573,6 +742,37 @@ function EmptyState({ hasItems }: { hasItems: boolean }) {
           ? "Try a different filter or search."
           : "Drop files, paste anything (Ctrl+V), or create a quick note above."}
       </p>
+    </div>
+  );
+}
+
+function SpaceCard({ space, onClick }: { space: SharedSpace; onClick: () => void }) {
+  const isOwner = space.role === "owner";
+  return (
+    <div 
+      onClick={onClick}
+      className="group relative rounded-2xl bg-card border border-border/50 p-5 shadow-card hover:shadow-lift transition-all duration-300 hover:-translate-y-0.5 cursor-pointer"
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="h-10 w-10 rounded-xl bg-primary-gradient flex items-center justify-center shadow-sm">
+          <Users className="h-5 w-5 text-white" />
+        </div>
+        {isOwner && (
+          <span className="flex items-center gap-1 rounded-full bg-warning/10 text-warning text-[10px] font-black uppercase tracking-wider px-2 py-1">
+            <Crown className="h-2.5 w-2.5" /> Owner
+          </span>
+        )}
+      </div>
+
+      <h3 className="font-bold text-foreground truncate text-base mb-1">{space.name}</h3>
+      <p className="text-xs text-muted-foreground flex items-center gap-1">
+        <Users className="h-3 w-3" />
+        {space.member_count} member{space.member_count !== 1 ? "s" : ""}
+      </p>
+
+      {/* Hover overlay */}
+      <div className="absolute inset-0 rounded-2xl bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
     </div>
   );
 }

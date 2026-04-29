@@ -1,6 +1,8 @@
 import { Outlet, Link, createRootRoute } from "@tanstack/react-router";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/lib/theme-context";
+import { NotificationsProvider } from "@/lib/notifications-context";
+import { SharedSpacesProvider } from "@/lib/shared-spaces-context";
 import { Toaster } from "@/components/ui/sonner";
 
 import "../styles.css";
@@ -36,10 +38,13 @@ function RootComponent() {
   return (
     <AuthProvider>
       <ThemeProvider>
-        <Outlet />
-        <Toaster position="top-right" richColors closeButton />
+        <NotificationsProvider>
+          <SharedSpacesProvider>
+            <Outlet />
+            <Toaster position="top-right" richColors closeButton />
+          </SharedSpacesProvider>
+        </NotificationsProvider>
       </ThemeProvider>
     </AuthProvider>
   );
 }
-
