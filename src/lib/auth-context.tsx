@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 
 interface AuthContextValue {
   user: User | null;
@@ -46,17 +45,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: `${window.location.origin}/login?verified=true` },
+      options: { emailRedirectTo: "http://localhost:5173" },
     });
     return { error };
   };
 
   const signInWithGoogle = async () => {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: `${window.location.origin}/dashboard`,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+      },
     });
-    if (result.error) {
-      return { error: result.error instanceof Error ? result.error : new Error(String(result.error)) };
+    if (error) {
+      return { error };
     }
     return { error: null };
   };

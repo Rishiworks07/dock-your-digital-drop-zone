@@ -90,17 +90,9 @@ function LoginPage() {
           {verified && (
             <div className="mb-6 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-100">
               <CheckCircle2 className="h-5 w-5 mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-              <p className="font-medium">Your email has been successfully verified. Please log in.</p>
+              <p className="font-medium">Your account has been activated successfully. Please log in to continue.</p>
             </div>
           )}
-
-          <GoogleButton />
-
-          <div className="my-6 flex items-center gap-3">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">or</span>
-            <div className="h-px flex-1 bg-border" />
-          </div>
 
           <form onSubmit={onSubmit} className="space-y-5">
             <div className="space-y-2 group">
@@ -140,6 +132,15 @@ function LoginPage() {
               {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : "Sign in to Dock"}
             </Button>
           </form>
+
+          <div className="mt-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">or</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+          <div className="mt-4">
+            <GoogleButton />
+          </div>
 
           {needsVerification && (
             <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-100">

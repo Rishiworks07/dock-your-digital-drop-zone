@@ -147,14 +147,6 @@ function SignupPage() {
                 <p className="text-sm text-muted-foreground mt-1">Start your smart collection today. Free 5 GB.</p>
               </div>
 
-              <GoogleButton label="Sign up with Google" />
-
-              <div className="my-6 flex items-center gap-3">
-                <div className="h-px flex-1 bg-border" />
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">or</span>
-                <div className="h-px flex-1 bg-border" />
-              </div>
-
               <form onSubmit={onSubmit} className="space-y-5">
                 <div className="space-y-2 group">
                   <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Email Address</Label>
@@ -192,6 +184,15 @@ function SignupPage() {
                   {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : "Create your Dock"}
                 </Button>
               </form>
+
+              <div className="mt-6 flex items-center gap-3">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">or</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              <div className="mt-4">
+                <GoogleButton label="Sign up with Google" />
+              </div>
 
               <div className="mt-8 flex flex-col items-center gap-4">
                 <p className="text-sm text-muted-foreground">
