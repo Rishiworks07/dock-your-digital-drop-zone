@@ -140,6 +140,8 @@ export type Database = {
           user_id: string
           username: string | null
           username_set: boolean
+          has_seen_guide: boolean
+          guide_metadata: Json | null
         }
         Insert: {
           auto_delete_days?: number
@@ -154,6 +156,8 @@ export type Database = {
           user_id: string
           username?: string | null
           username_set?: boolean
+          has_seen_guide?: boolean
+          guide_metadata?: Json | null
         }
         Update: {
           auto_delete_days?: number
@@ -168,6 +172,8 @@ export type Database = {
           user_id?: string
           username?: string | null
           username_set?: boolean
+          has_seen_guide?: boolean
+          guide_metadata?: Json | null
         }
         Relationships: []
       }

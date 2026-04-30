@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Anchor, ArrowDownAZ, ArrowDownWideNarrow, Clipboard, FileText,
   Link as LinkIcon, Loader2, LogOut, Search, Settings, User, X, PinIcon,
-  Moon, Sun, FolderPlus, Users, AtSign, Crown,
+  Moon, Sun, FolderPlus, Users, AtSign, Crown, HelpCircle
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
@@ -30,6 +30,7 @@ import { LinkModal, NoteModal } from "@/components/dock/QuickModals";
 import { NotificationsPanel } from "@/components/dock/NotificationsPanel";
 import { CreateSpaceModal } from "@/components/dock/CreateSpaceModal";
 import { SpaceMembersModal } from "@/components/dock/SpaceMembersModal";
+import { ProductTour } from "@/components/dock/ProductTour";
 import { useSharedSpaces, type SharedSpace } from "@/lib/shared-spaces-context";
 import type { FilterType, Item, SortType } from "@/components/dock/types";
 import { createLink, createNote, deleteItem, uploadFileItem } from "@/lib/upload";
@@ -75,6 +76,7 @@ function Dashboard() {
   const [linkOpen, setLinkOpen] = useState(false);
   const [createSpaceOpen, setCreateSpaceOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
   const [detailItem, setDetailItem] = useState<Item | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Item | null>(null);
   const { theme, toggleTheme } = useTheme();
@@ -148,7 +150,10 @@ function Dashboard() {
 
   useEffect(() => {
     fetchAll(true); // Initial load is "auto" to avoid animation
-  }, [fetchAll]);
+    if (profile && !profile.has_seen_guide) {
+      setTourOpen(true);
+    }
+  }, [fetchAll, profile]);
 
   // Realtime sync
   useEffect(() => {
@@ -332,7 +337,9 @@ function Dashboard() {
 
           <div className="flex items-center gap-2">
             {/* Notifications bell */}
-            <NotificationsPanel />
+            <div id="notifications-bell">
+              <NotificationsPanel />
+            </div>
 
             <button
               onClick={handleManualSync}
@@ -459,6 +466,13 @@ function Dashboard() {
                 {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
               </button>
               <button
+                onClick={() => setTourOpen(true)}
+                className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all"
+                aria-label="Start product tour"
+              >
+                <HelpCircle className="h-5 w-5" />
+              </button>
+              <button
                 onClick={() => navigate({ to: "/settings" })}
                 className="p-2 rounded-full text-muted-foreground hover:text-foreground hidden sm:block hover:bg-muted/50 transition-all"
               >
@@ -532,6 +546,7 @@ function Dashboard() {
                 </button>
                 <div className="h-5 w-px bg-border"></div>
                 <button
+                  id="vault-tab"
                   onClick={() => setActiveTab("vault")}
                   className={cn(
                     "text-xl font-bold transition-all",
@@ -555,7 +570,7 @@ function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
           {/* Left Column: Upload Zone */}
           <div className="lg:col-span-2">
-            <UploadZone onFiles={handleFiles} uploading={uploading} progress={uploadProgress} disabled={isFull} className="h-full" />
+            <UploadZone id="upload-zone" onFiles={handleFiles} uploading={uploading} progress={uploadProgress} disabled={isFull} className="h-full" />
           </div>
 
           {/* Right Column: Sidebar */}
@@ -599,7 +614,7 @@ function Dashboard() {
 
         {/* ── Shared Spaces Section ── */}
         {!activeSpace && (
-          <section className="space-y-6 pt-4">
+          <section id="spaces-section" className="space-y-6 pt-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-primary" />
@@ -695,6 +710,7 @@ function Dashboard() {
 
       <CreateSpaceModal open={createSpaceOpen} onOpenChange={setCreateSpaceOpen} />
       <SpaceMembersModal open={membersOpen} onOpenChange={setMembersOpen} space={activeSpace} onUpdate={fetchAll} />
+      <ProductTour open={tourOpen} onClose={() => setTourOpen(false)} userId={userId} />
       <NoteModal open={noteOpen} onOpenChange={setNoteOpen} userId={userId} onCreated={fetchAll} spaceId={activeSpace?.id} />
       <LinkModal open={linkOpen} onOpenChange={setLinkOpen} userId={userId} onCreated={fetchAll} spaceId={activeSpace?.id} />
       <ItemDetailModal

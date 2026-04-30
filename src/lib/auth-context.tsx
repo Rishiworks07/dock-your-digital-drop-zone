@@ -8,6 +8,7 @@ export interface Profile {
   username_set: boolean;
   display_name: string | null;
   email: string | null;
+  has_seen_guide: boolean;
 }
 
 interface AuthContextValue {
@@ -34,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from("profiles")
-      .select("user_id, username, username_set, display_name, email")
+      .select("user_id, username, username_set, display_name, email, has_seen_guide")
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -45,11 +46,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         username_set: data.username_set ?? false,
         display_name: data.display_name ?? null,
         email: data.email ?? null,
+        has_seen_guide: data.has_seen_guide ?? false,
       });
     } else {
       // No profile row yet — upsert a blank one
-      await supabase.from("profiles").upsert({ user_id: userId, username_set: false }, { onConflict: "user_id" });
-      setProfile({ user_id: userId, username: null, username_set: false, display_name: null, email: null });
+      await supabase.from("profiles").upsert({ user_id: userId, username_set: false, has_seen_guide: false }, { onConflict: "user_id" });
+      setProfile({ user_id: userId, username: null, username_set: false, display_name: null, email: null, has_seen_guide: false });
     }
   }, []);
 
