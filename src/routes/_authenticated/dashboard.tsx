@@ -709,7 +709,13 @@ function Dashboard() {
       </main>
 
       <CreateSpaceModal open={createSpaceOpen} onOpenChange={setCreateSpaceOpen} />
-      <SpaceMembersModal open={membersOpen} onOpenChange={setMembersOpen} space={activeSpace} onUpdate={fetchAll} />
+      <SpaceMembersModal 
+        open={membersOpen} 
+        onOpenChange={setMembersOpen} 
+        space={activeSpace} 
+        onUpdate={fetchAll} 
+        onSpaceDeleted={() => setActiveSpace(null)}
+      />
       <ProductTour open={tourOpen} onClose={() => setTourOpen(false)} userId={userId} />
       <NoteModal open={noteOpen} onOpenChange={setNoteOpen} userId={userId} onCreated={fetchAll} spaceId={activeSpace?.id} />
       <LinkModal open={linkOpen} onOpenChange={setLinkOpen} userId={userId} onCreated={fetchAll} spaceId={activeSpace?.id} />
