@@ -7,8 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -25,11 +23,13 @@ export type Database = {
           file_url: string | null
           id: string
           is_pinned: boolean
+          is_vaulted: boolean
           language: string | null
           link_favicon: string | null
           link_image: string | null
           link_title: string | null
           link_url: string | null
+          space_id: string | null
           tags: string[]
           thumbnail_url: string | null
           title: string | null
@@ -47,11 +47,13 @@ export type Database = {
           file_url?: string | null
           id?: string
           is_pinned?: boolean
+          is_vaulted?: boolean
           language?: string | null
           link_favicon?: string | null
           link_image?: string | null
           link_title?: string | null
           link_url?: string | null
+          space_id?: string | null
           tags?: string[]
           thumbnail_url?: string | null
           title?: string | null
@@ -69,17 +71,58 @@ export type Database = {
           file_url?: string | null
           id?: string
           is_pinned?: boolean
+          is_vaulted?: boolean
           language?: string | null
           link_favicon?: string | null
           link_image?: string | null
           link_title?: string | null
           link_url?: string | null
+          space_id?: string | null
           tags?: string[]
           thumbnail_url?: string | null
           title?: string | null
           type?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          type: string
+          title: string
+          body: string | null
+          metadata: Json
+          is_read: boolean
+          status: string
+          expires_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          type: string
+          title: string
+          body?: string | null
+          metadata?: Json
+          is_read?: boolean
+          status?: string
+          expires_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          type?: string
+          title?: string
+          body?: string | null
+          metadata?: Json
+          is_read?: boolean
+          status?: string
+          expires_at?: string | null
+          created_at?: string
         }
         Relationships: []
       }
@@ -95,6 +138,10 @@ export type Database = {
           paste_detection_enabled: boolean
           updated_at: string
           user_id: string
+          username: string | null
+          username_set: boolean
+          has_seen_guide: boolean
+          guide_metadata: Json | null
         }
         Insert: {
           auto_delete_days?: number
@@ -107,6 +154,10 @@ export type Database = {
           paste_detection_enabled?: boolean
           updated_at?: string
           user_id: string
+          username?: string | null
+          username_set?: boolean
+          has_seen_guide?: boolean
+          guide_metadata?: Json | null
         }
         Update: {
           auto_delete_days?: number
@@ -119,6 +170,58 @@ export type Database = {
           paste_detection_enabled?: boolean
           updated_at?: string
           user_id?: string
+          username?: string | null
+          username_set?: boolean
+          has_seen_guide?: boolean
+          guide_metadata?: Json | null
+        }
+        Relationships: []
+      }
+      shared_space_members: {
+        Row: {
+          id: string
+          space_id: string
+          user_id: string
+          role: string
+          joined_at: string
+        }
+        Insert: {
+          id?: string
+          space_id: string
+          user_id: string
+          role?: string
+          joined_at?: string
+        }
+        Update: {
+          id?: string
+          space_id?: string
+          user_id?: string
+          role?: string
+          joined_at?: string
+        }
+        Relationships: []
+      }
+      shared_spaces: {
+        Row: {
+          id: string
+          name: string
+          owner_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          owner_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          owner_id?: string
+          created_at?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -160,7 +263,6 @@ export type Database = {
 }
 
 type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
-
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<

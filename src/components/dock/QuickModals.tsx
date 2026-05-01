@@ -14,9 +14,10 @@ interface Props {
   onOpenChange: (o: boolean) => void;
   userId: string;
   onCreated: () => void;
+  spaceId?: string | null;
 }
 
-export function NoteModal({ open, onOpenChange, userId, onCreated }: Props) {
+export function NoteModal({ open, onOpenChange, userId, onCreated, spaceId }: Props) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tagsRaw, setTagsRaw] = useState("");
@@ -31,7 +32,7 @@ export function NoteModal({ open, onOpenChange, userId, onCreated }: Props) {
     setBusy(true);
     try {
       const tags = tagsRaw.split(",").map((t) => t.trim()).filter(Boolean);
-      await createNote(userId, title, content, tags);
+      await createNote(userId, title, content, tags, spaceId);
       toast.success("Note saved");
       onCreated();
       onOpenChange(false);
@@ -71,7 +72,7 @@ export function NoteModal({ open, onOpenChange, userId, onCreated }: Props) {
   );
 }
 
-export function LinkModal({ open, onOpenChange, userId, onCreated }: Props) {
+export function LinkModal({ open, onOpenChange, userId, onCreated, spaceId }: Props) {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -81,7 +82,7 @@ export function LinkModal({ open, onOpenChange, userId, onCreated }: Props) {
     if (!isUrl(url)) { toast.error("Enter a valid URL (https://...)"); return; }
     setBusy(true);
     try {
-      await createLink(userId, url.trim());
+      await createLink(userId, url.trim(), spaceId);
       toast.success("Link saved");
       onCreated();
       onOpenChange(false);
@@ -91,6 +92,7 @@ export function LinkModal({ open, onOpenChange, userId, onCreated }: Props) {
       setBusy(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

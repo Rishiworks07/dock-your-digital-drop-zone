@@ -10,9 +10,10 @@ interface Props {
   progress: number;
   disabled?: boolean;
   className?: string;
+  id?: string;
 }
 
-export function UploadZone({ onFiles, uploading, progress, disabled, className }: Props) {
+export function UploadZone({ onFiles, uploading, progress, disabled, className, id }: Props) {
   const [isDragging, setIsDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -26,6 +27,7 @@ export function UploadZone({ onFiles, uploading, progress, disabled, className }
 
   return (
     <div
+      id={id}
       onDragOver={(e) => { e.preventDefault(); if (!disabled) setIsDragging(true); }}
       onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
       onDrop={handleDrop}
