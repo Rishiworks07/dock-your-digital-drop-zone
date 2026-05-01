@@ -74,16 +74,37 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
 
   const handleSearch = async (val: string) => {
     setSearch(val);
-    if (val.length < 3) { setSearchResults([]); return; }
-    setSearching(true);
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, username")
-      .ilike("username", `%${val}%`)
-      .limit(5);
+    if (!val.trim()) { setSearchResults([]); return; }
     
+    setSearching(true);
+    console.log("Searching for:", val);
+    
+    // Search by username OR email
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("user_id, username, email")
+      .or(`username.ilike.%${val}%,email.ilike.%${val}%`)
+      .not("user_id", "eq", user?.id) // Don't find yourself
+      .limit(10);
+    
+    if (error) {
+      console.error("Search error:", error);
+      toast.error("Search failed. Check console for details.");
+      setSearching(false);
+      return;
+    }
+
+    console.log("Search results from DB:", data);
+
+    if (!data || data.length === 0) {
+      console.warn("No users found. This might be due to Row Level Security (RLS) blocking access to other profiles.");
+    }
+
     // Filter out existing members
-    const filtered = (data || []).filter(u => !members.find(m => m.user_id === u.id));
+    const filtered = (data || []).filter(u => 
+      !members.find(m => m.user_id === u.user_id)
+    );
+    
     setSearchResults(filtered);
     setSearching(false);
   };
@@ -94,18 +115,18 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
       toast.error("Space is limited to 3 members total.");
       return;
     }
-    setBusy(targetUser.id);
+    setBusy(targetUser.user_id);
     try {
       // 1. Add to members table
       const { error: memErr } = await supabase
         .from("shared_space_members")
-        .insert({ space_id: space.id, user_id: targetUser.id, role: "member" });
+        .insert({ space_id: space.id, user_id: targetUser.user_id, role: "member" });
       
       if (memErr) throw memErr;
 
       // 2. Send notification
       await supabase.from("notifications").insert({
-        user_id: targetUser.id,
+        user_id: targetUser.user_id,
         type: "space_invite",
         title: "New Space Invite",
         body: `You've been added to "${space.name}"`,
@@ -267,7 +288,7 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search by username..."
+                    placeholder="Search by username or email..."
                     className="pl-10 rounded-xl"
                     value={search}
                     onChange={(e) => handleSearch(e.target.value)}
@@ -279,14 +300,17 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
                   <div className="rounded-xl border border-border/50 bg-card shadow-lg overflow-hidden mt-2">
                     {searchResults.map((u) => (
                       <button
-                        key={u.id}
+                        key={u.user_id}
                         onClick={() => addMember(u)}
                         disabled={!!busy}
-                        className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors border-b last:border-0 border-border/50"
+                        className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors border-b last:border-0 border-border/50 text-left"
                       >
-                        <div className="flex items-center gap-2">
-                          <AtSign className="h-3.5 w-3.5 text-primary" />
-                          <span className="text-sm font-bold">{u.username}</span>
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-2">
+                            <AtSign className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-sm font-bold">{u.username || "No username"}</span>
+                          </div>
+                          {u.email && <span className="text-[10px] text-muted-foreground ml-5">{u.email}</span>}
                         </div>
                         <UserPlus className="h-4 w-4 text-primary" />
                       </button>
@@ -375,4 +399,3 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
     </>
   );
 }
-
