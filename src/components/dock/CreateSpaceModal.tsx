@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useSharedSpaces } from "@/lib/shared-spaces-context";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { logActivity } from "@/lib/logger";
 
 const MAX_MEMBERS = 3; // owner + 2 collaborators = 3 total
 
@@ -115,6 +116,7 @@ export function CreateSpaceModal({ open, onOpenChange }: Props) {
       }
 
       toast.success(`"${space.name}" created!`);
+      await logActivity(user.id, "shared_space_create", { name: space.name, member_count: selected.length + 1 });
       await refresh();
       onOpenChange(false);
     } catch (e) {

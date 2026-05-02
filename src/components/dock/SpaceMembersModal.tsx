@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useSharedSpaces, type SharedSpace } from "@/lib/shared-spaces-context";
 import { useAuth } from "@/lib/auth-context";
+import { logActivity } from "@/lib/logger";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -132,6 +133,8 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
         body: `You've been added to "${space.name}"`,
         metadata: { space_id: space.id, space_name: space.name },
       });
+      
+      await logActivity(user?.id || null, "invite_send", { space_id: space.id, target_user: targetUser.username });
 
       toast.success(`${targetUser.username} added`);
       setSearch("");
@@ -189,6 +192,7 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
       if (error) throw error;
 
       toast.success("Space deleted");
+      await logActivity(user?.id || null, "delete", { type: "shared_space", name: space.name });
       onOpenChange(false);
       await refreshSpaces();
       onSpaceDeleted?.();
@@ -213,6 +217,7 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
       if (error) throw error;
 
       toast.success("Left the space");
+      await logActivity(user.id, "shared_space_join", { space_id: space.id, action: "leave" });
       onOpenChange(false);
       await refreshSpaces();
       onSpaceDeleted?.();

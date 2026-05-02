@@ -258,7 +258,7 @@ function Dashboard() {
 
   const performDelete = async (item: Item) => {
     try {
-      await deleteItem({ id: item.id, file_path: item.file_path });
+      await deleteItem(userId, { id: item.id, file_path: item.file_path, type: item.type, title: item.title ?? item.file_name });
       toast.success("Deleted");
       setConfirmDelete(null);
       setDetailItem(null);

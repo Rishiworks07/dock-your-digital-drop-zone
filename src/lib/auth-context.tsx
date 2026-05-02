@@ -9,6 +9,7 @@ interface Profile {
   display_name: string | null;
   email: string | null;
   has_seen_guide: boolean;
+  is_admin: boolean;
 }
 
 interface AuthContextValue {
@@ -21,6 +22,7 @@ interface AuthContextValue {
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  hasSetUsername: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -37,6 +39,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("user_id, username, username_set, display_name, email, has_seen_guide")
       .eq("user_id", userId)
       .maybeSingle();
+      
+    // Try to fetch is_admin separately so it doesn't break if column is missing
+    const { data: adminData } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("user_id", userId)
+      .maybeSingle();
 
     if (error) {
       console.error("Error fetching profile:", error);
@@ -51,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         display_name: data.display_name ?? null,
         email: data.email ?? null,
         has_seen_guide: data.has_seen_guide ?? false,
+        is_admin: adminData?.is_admin ?? false,
       });
     } else {
       // No profile row yet — upsert a blank one
@@ -63,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (upsertError) {
         console.error("Error creating profile:", upsertError);
       } else {
-        setProfile({ user_id: userId, username: null, username_set: false, display_name: null, email: null, has_seen_guide: false });
+        setProfile({ user_id: userId, username: null, username_set: false, display_name: null, email: null, has_seen_guide: false, is_admin: false });
       }
     }
   }, []);
@@ -126,9 +136,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const hasSetUsername = useMemo(() => !!profile?.username_set, [profile]);
+
   const value = useMemo(
-    () => ({ user, session, profile, loading, signIn, signUp, signInWithGoogle, signOut, refreshProfile }),
-    [user, session, profile, loading, refreshProfile]
+    () => ({ user, session, profile, loading, signIn, signUp, signInWithGoogle, signOut, refreshProfile, hasSetUsername }),
+    [user, session, profile, loading, refreshProfile, hasSetUsername]
   );
 
   return (
