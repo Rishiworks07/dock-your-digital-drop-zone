@@ -7,13 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GoogleButton } from "@/components/auth/GoogleButton";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useStatus } from "@/components/ui/QuickStatus";
 
 export const Route = createFileRoute("/signup")({
   component: SignupPage,
 });
 
 function SignupPage() {
+  const { showStatus } = useStatus();
   const { signUp, user, loading } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -49,14 +50,14 @@ function SignupPage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (password.length < 6) {
-      toast.error("Password must be at least 6 characters");
+      showStatus("Password too short", "error");
       return;
     }
     setSubmitting(true);
     const { error } = await signUp(email, password);
     setSubmitting(false);
     if (error) {
-      toast.error(error.message);
+      showStatus("Failed to create account", "error");
       return;
     }
     setSubmittedEmail(email);
@@ -72,9 +73,9 @@ function SignupPage() {
       options: { emailRedirectTo: `${window.location.origin}/login?verified=true` },
     });
     setResending(false);
-    if (error) toast.error(error.message);
+    if (error) showStatus("Failed to resend", "error");
     else {
-      toast.success("Verification email sent again.");
+      showStatus("Verification sent", "success");
       startCooldown();
     }
   };

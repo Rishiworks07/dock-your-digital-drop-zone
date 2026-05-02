@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2, Search, UserMinus, UserPlus, X, Crown, AtSign, Trash2, LogOut, Users, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { useSharedSpaces, type SharedSpace } from "@/lib/shared-spaces-context";
 import { useAuth } from "@/lib/auth-context";
+import { useStatus } from "@/components/ui/QuickStatus";
+import { logActivity } from "@/lib/logger";
+import { useSharedSpaces, type SharedSpace } from "@/lib/shared-spaces-context";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +38,7 @@ interface Props {
 
 export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpaceDeleted }: Props) {
   const { user } = useAuth();
+  const { showStatus } = useStatus();
   const { refresh: refreshSpaces } = useSharedSpaces();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,23 +69,44 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
       `)
       .eq("space_id", space.id);
 
-    if (error) toast.error(error.message);
+    if (error) showStatus("Something went wrong", "error");
     else setMembers((data as any) || []);
     setLoading(false);
   };
 
   const handleSearch = async (val: string) => {
     setSearch(val);
-    if (val.length < 3) { setSearchResults([]); return; }
-    setSearching(true);
-    const { data } = await supabase
-      .from("profiles")
-      .select("id, username")
-      .ilike("username", `%${val}%`)
-      .limit(5);
+    if (!val.trim()) { setSearchResults([]); return; }
     
+    setSearching(true);
+    console.log("Searching for:", val);
+    
+    // Search by username OR email
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("user_id, username, email")
+      .or(`username.ilike.%${val}%,email.ilike.%${val}%`)
+      .not("user_id", "eq", user?.id) // Don't find yourself
+      .limit(10);
+    
+    if (error) {
+      console.error("Search error:", error);
+      showStatus("Search failed", "error");
+      setSearching(false);
+      return;
+    }
+
+    console.log("Search results from DB:", data);
+
+    if (!data || data.length === 0) {
+      console.warn("No users found. This might be due to Row Level Security (RLS) blocking access to other profiles.");
+    }
+
     // Filter out existing members
-    const filtered = (data || []).filter(u => !members.find(m => m.user_id === u.id));
+    const filtered = (data || []).filter(u => 
+      !members.find(m => m.user_id === u.user_id)
+    );
+    
     setSearchResults(filtered);
     setSearching(false);
   };
@@ -91,34 +114,36 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
   const addMember = async (targetUser: any) => {
     if (!space) return;
     if (members.length >= 3) {
-      toast.error("Space is limited to 3 members total.");
+      showStatus("Limit: 3 members per space", "error");
       return;
     }
-    setBusy(targetUser.id);
+    setBusy(targetUser.user_id);
     try {
       // 1. Add to members table
       const { error: memErr } = await supabase
         .from("shared_space_members")
-        .insert({ space_id: space.id, user_id: targetUser.id, role: "member" });
+        .insert({ space_id: space.id, user_id: targetUser.user_id, role: "member" });
       
       if (memErr) throw memErr;
 
       // 2. Send notification
       await supabase.from("notifications").insert({
-        user_id: targetUser.id,
+        user_id: targetUser.user_id,
         type: "space_invite",
         title: "New Space Invite",
         body: `You've been added to "${space.name}"`,
         metadata: { space_id: space.id, space_name: space.name },
       });
+      
+      await logActivity(user?.id || null, "invite_send", { space_id: space.id, target_user: targetUser.username });
 
-      toast.success(`${targetUser.username} added`);
+      showStatus(`${targetUser.username} added`, "success");
       setSearch("");
       setSearchResults([]);
       fetchMembers();
       onUpdate?.();
     } catch (e) {
-      toast.error((e as Error).message);
+      showStatus("An error occurred", "error");
     } finally {
       setBusy(null);
     }
@@ -135,9 +160,9 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
       .eq("space_id", space.id)
       .eq("user_id", member.user_id);
 
-    if (error) toast.error(error.message);
+    if (error) showStatus("Something went wrong", "error");
     else {
-      toast.success("Member removed");
+      showStatus("Member removed", "success");
       fetchMembers();
       onUpdate?.();
     }
@@ -167,13 +192,14 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
       
       if (error) throw error;
 
-      toast.success("Space deleted");
+      showStatus("Space deleted", "success");
+      await logActivity(user?.id || null, "delete", { type: "shared_space", name: space.name });
       onOpenChange(false);
       await refreshSpaces();
       onSpaceDeleted?.();
       onUpdate?.();
     } catch (e) {
-      toast.error((e as Error).message);
+      showStatus("An error occurred", "error");
     } finally {
       setBusy(null);
     }
@@ -191,13 +217,14 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
 
       if (error) throw error;
 
-      toast.success("Left the space");
+      showStatus("Left the space", "success");
+      await logActivity(user.id, "shared_space_join", { space_id: space.id, action: "leave" });
       onOpenChange(false);
       await refreshSpaces();
       onSpaceDeleted?.();
       onUpdate?.();
     } catch (e) {
-      toast.error((e as Error).message);
+      showStatus("An error occurred", "error");
     } finally {
       setBusy(null);
     }
@@ -267,7 +294,7 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Search by username..."
+                    placeholder="Search by username or email..."
                     className="pl-10 rounded-xl"
                     value={search}
                     onChange={(e) => handleSearch(e.target.value)}
@@ -279,14 +306,17 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
                   <div className="rounded-xl border border-border/50 bg-card shadow-lg overflow-hidden mt-2">
                     {searchResults.map((u) => (
                       <button
-                        key={u.id}
+                        key={u.user_id}
                         onClick={() => addMember(u)}
                         disabled={!!busy}
-                        className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors border-b last:border-0 border-border/50"
+                        className="w-full flex items-center justify-between p-3 hover:bg-muted/50 transition-colors border-b last:border-0 border-border/50 text-left"
                       >
-                        <div className="flex items-center gap-2">
-                          <AtSign className="h-3.5 w-3.5 text-primary" />
-                          <span className="text-sm font-bold">{u.username}</span>
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-2">
+                            <AtSign className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-sm font-bold">{u.username || "No username"}</span>
+                          </div>
+                          {u.email && <span className="text-[10px] text-muted-foreground ml-5">{u.email}</span>}
                         </div>
                         <UserPlus className="h-4 w-4 text-primary" />
                       </button>
@@ -375,4 +405,3 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
     </>
   );
 }
-

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Anchor, ArrowDownAZ, ArrowDownWideNarrow, Clipboard, FileText,
   Link as LinkIcon, Loader2, LogOut, Search, Settings, User, X, PinIcon,
-  Moon, Sun, FolderPlus, Users, AtSign, Crown, HelpCircle
+  Moon, Sun, FolderPlus, Users, AtSign, Crown, HelpCircle, RefreshCw
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
@@ -35,7 +35,8 @@ import { useSharedSpaces, type SharedSpace } from "@/lib/shared-spaces-context";
 import type { FilterType, Item, SortType } from "@/components/dock/types";
 import { createLink, createNote, deleteItem, uploadFileItem } from "@/lib/upload";
 import { isUrl, STORAGE_LIMIT } from "@/lib/item-helpers";
-import { toast } from "sonner";
+import { checkExpiringItems } from "@/lib/notification-service";
+import { useStatus } from "@/components/ui/QuickStatus";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
@@ -53,6 +54,7 @@ const FILTERS: { id: FilterType; label: string }[] = [
 
 function Dashboard() {
   const { user, signOut, profile } = useAuth();
+  const { showStatus } = useStatus();
   const navigate = useNavigate();
   const userId = user!.id;
   const { spaces } = useSharedSpaces();
@@ -102,7 +104,7 @@ function Dashboard() {
           supabase.from("items").select("file_size").eq("space_id", activeSpace.id),
         ]);
 
-        if (itemsRes.error) toast.error(itemsRes.error.message);
+        if (itemsRes.error) showStatus("Unable to load space items", "error");
         else setItems((itemsRes.data ?? []) as Item[]);
 
         const totalUsed = (usageRes.data ?? []).reduce((acc, curr) => acc + (curr.file_size || 0), 0);
@@ -121,7 +123,7 @@ function Dashboard() {
           .order("created_at", { ascending: false });
 
         if (itemsRes.error) {
-          toast.error(itemsRes.error.message);
+          showStatus("Unable to load your items", "error");
         } else {
           const fetchedItems = (itemsRes.data ?? []) as Item[];
           setItems(fetchedItems);
@@ -150,10 +152,11 @@ function Dashboard() {
 
   useEffect(() => {
     fetchAll(true); // Initial load is "auto" to avoid animation
+    if (userId) checkExpiringItems(userId);
     if (profile && !profile.has_seen_guide) {
       setTourOpen(true);
     }
-  }, [fetchAll, profile]);
+  }, [fetchAll, profile, userId]);
 
   // Realtime sync
   useEffect(() => {
@@ -199,12 +202,12 @@ function Dashboard() {
         usedSoFar += item.file_size;
         success++;
       } catch (e) {
-        toast.error((e as Error).message);
+        showStatus("Upload failed. Please try again.", "error");
       }
       setUploadProgress(((i + 1) / files.length) * 100);
     }
     setUploading(false);
-    if (success) toast.success(`${success} item${success > 1 ? "s" : ""} uploaded`);
+    if (success) showStatus(`Successfully uploaded ${success} item${success > 1 ? "s" : ""}`, "success");
     fetchAll();
   }, [userId, usedBytes, limitBytes, fetchAll, activeSpace, activeTab]);
 
@@ -227,14 +230,14 @@ function Dashboard() {
         const isVaulted = !activeSpace && activeTab === "vault";
         if (isUrl(text)) {
           await createLink(userId, text.trim(), activeSpace?.id, isVaulted);
-          toast.success("Link saved");
+          showStatus("Link saved to dock", "success");
         } else {
           await createNote(userId, "", text, [], activeSpace?.id, isVaulted);
-          toast.success("Note saved");
+          showStatus("Note saved to dock", "success");
         }
         fetchAll();
       } catch (err) {
-        toast.error((err as Error).message);
+        showStatus("Unable to save item", "error");
       }
     };
     window.addEventListener("paste", onPaste);
@@ -243,46 +246,46 @@ function Dashboard() {
 
   const togglePin = async (item: Item) => {
     const { error } = await supabase.from("items").update({ is_pinned: !item.is_pinned }).eq("id", item.id);
-    if (error) toast.error(error.message);
+    if (error) showStatus("Something went wrong", "error");
     else fetchAll();
   };
 
   const moveToVault = async (item: Item) => {
     const { error } = await supabase.from("items").update({ is_vaulted: true }).eq("id", item.id);
-    if (error) toast.error(error.message);
+    if (error) showStatus("Unable to move to Vault", "error");
     else {
-      toast.success("Moved to Vault");
+      showStatus("Moved to Private Vault", "success");
       fetchAll();
     }
   };
 
   const performDelete = async (item: Item) => {
     try {
-      await deleteItem({ id: item.id, file_path: item.file_path });
-      toast.success("Deleted");
+      await deleteItem(userId, { id: item.id, file_path: item.file_path, type: item.type, title: item.title ?? item.file_name ?? "" });
+      showStatus("Item removed", "success");
       setConfirmDelete(null);
       setDetailItem(null);
       fetchAll();
     } catch (e) {
-      toast.error((e as Error).message);
+      showStatus("Something went wrong during deletion", "error");
     }
   };
 
   const pasteFromClipboard = async () => {
     try {
       const text = await navigator.clipboard.readText();
-      if (!text) { toast.error("Clipboard is empty"); return; }
+      if (!text) { showStatus("Clipboard is empty", "error"); return; }
       const isVaulted = !activeSpace && activeTab === "vault";
       if (isUrl(text)) {
         await createLink(userId, text.trim(), activeSpace?.id, isVaulted);
-        toast.success("Link saved");
+        showStatus("Link saved to dock", "success");
       } else {
         await createNote(userId, "", text, [], activeSpace?.id, isVaulted);
-        toast.success("Note saved");
+        showStatus("Note saved to dock", "success");
       }
       fetchAll();
     } catch {
-      toast.error("Could not read clipboard");
+      showStatus("Unable to read clipboard", "error");
     }
   };
 
@@ -324,7 +327,7 @@ function Dashboard() {
             <h1 className="text-2xl font-bold tracking-tight text-primary">Dock</h1>
           </button>
 
-          <div className="relative flex-1 max-w-xl">
+          <div className="relative flex-1 max-w-xl hidden md:block">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
@@ -345,119 +348,43 @@ function Dashboard() {
               onClick={handleManualSync}
               disabled={syncState === "syncing"}
               className={cn(
-                "relative overflow-hidden hidden lg:flex items-center gap-3 mr-4 px-3 py-1.5 rounded-full border shadow-sm transition-all duration-500 group min-w-[155px] justify-center",
+                "relative flex h-10 w-10 items-center justify-center rounded-xl border transition-all duration-500 group overflow-hidden",
                 syncState === "synced" && "bg-sky-soft/40 border-border/50 hover:bg-sky-soft/70 hover:shadow-lift hover:-translate-y-0.5",
-                syncState === "pending" && "bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:-translate-y-0.5",
-                syncState === "syncing" && "bg-transparent border-transparent shadow-none cursor-wait"
+                syncState === "pending" && "bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20 animate-neon-ring hover:-translate-y-0.5",
+                syncState === "syncing" && "bg-primary/10 border-primary/30 cursor-wait animate-neon-ring"
               )}
+              title="Sync Workspace"
             >
-              {/* Infinity light animation overlay */}
-              <svg
-                className={cn(
-                  "pointer-events-none absolute inset-0 h-full w-full transition-opacity duration-300",
-                  syncState === "synced" ? "opacity-0 group-hover:opacity-100" : "opacity-100"
-                )}
-                viewBox="0 0 100 40"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-              >
-                <defs>
-                  <filter id="infinity-glow-strong" x="-100%" y="-100%" width="300%" height="300%">
-                    <feGaussianBlur stdDeviation={syncState === "syncing" ? "1.5" : "0.8"} result="blur" />
-                    <feComponentTransfer in="blur">
-                      <feFuncA type="linear" slope={syncState === "syncing" ? "3" : "1.5"} />
-                    </feComponentTransfer>
-                    <feMerge>
-                      <feMergeNode />
-                      <feMergeNode in="SourceGraphic" />
-                    </feMerge>
-                  </filter>
-                  <linearGradient id="comet-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="transparent" />
-                    <stop offset="50%" stopColor="#6366f1" />
-                    <stop offset="100%" stopColor="#ffffff" />
-                  </linearGradient>
-                </defs>
-                <path
-                  id="infinity-path"
-                  d="M 20,20 C 20,5 45,5 50,20 C 55,35 80,35 80,20 C 80,5 55,5 50,20 C 45,35 20,35 20,20 Z"
-                  fill="none"
-                  stroke={
-                    syncState === "synced" ? "var(--primary)" :
-                      syncState === "pending" ? "#f59e0b" : "#6366f1"
-                  }
-                  strokeOpacity="0.1"
-                  strokeWidth="0.6"
-                />
-                {/* The "Comet" Path */}
-                <path
-                  d="M 20,20 C 20,5 45,5 50,20 C 55,35 80,35 80,20 C 80,5 55,5 50,20 C 45,35 20,35 20,20 Z"
-                  fill="none"
-                  stroke="url(#comet-gradient)"
-                  strokeWidth={syncState === "syncing" ? "2.5" : "1.2"}
-                  strokeDasharray={syncState === "syncing" ? "30 70" : "10 90"}
-                  strokeDashoffset="0"
-                  strokeLinecap="round"
-                  filter="url(#infinity-glow-strong)"
-                  pathLength="100"
-                  className={cn(
-                    "transition-all duration-500",
-                    syncState === "synced" ? "opacity-0" : "opacity-100"
-                  )}
-                  style={{
-                    animation: `dash-scroll ${syncState === "syncing" ? '0.8s' : '2.4s'} linear infinite`
-                  }}
-                />
-                {/* Synced State Circles (Original Style) */}
-                {syncState === "synced" && (
-                  <>
-                    <circle r="1.6" fill="var(--primary-glow)" filter="url(#infinity-blur)" className="infinity-glow">
-                      <animateMotion dur="2.4s" repeatCount="indefinite" rotate="auto">
-                        <mpath href="#infinity-path" />
-                      </animateMotion>
-                    </circle>
-                    <circle r="0.9" fill="var(--primary)">
-                      <animateMotion dur="2.4s" repeatCount="indefinite" rotate="auto">
-                        <mpath href="#infinity-path" />
-                      </animateMotion>
-                    </circle>
-                  </>
-                )}
-              </svg>
+              {/* Neon Ring Background (visible when syncing or pending) */}
+              {(syncState === "syncing" || syncState === "pending") && (
+                <div className="absolute inset-0 rounded-xl bg-primary/5 animate-pulse-soft" />
+              )}
+              
               <div className={cn(
-                "relative flex items-center justify-center z-10 transition-all duration-300",
-                syncState === "syncing" ? "opacity-0 scale-50" : "opacity-100 scale-100"
+                "relative z-10 transition-all duration-500",
+                syncState === "syncing" ? "animate-spin" : "group-hover:scale-110"
               )}>
-                <div className={cn(
-                  "h-2 w-2 rounded-full transition-colors duration-300",
-                  syncState === "synced" && "bg-primary",
-                  syncState === "pending" && "bg-amber-500 animate-bounce",
-                  syncState === "syncing" && "bg-indigo-500 animate-spin"
-                )} />
-                <div className={cn(
-                  "absolute h-4 w-4 rounded-full transition-all duration-300 animate-pulse-soft",
-                  syncState === "synced" && "bg-primary/40",
-                  syncState === "pending" && "bg-amber-500/40",
-                  syncState === "syncing" && "bg-indigo-500/40"
+                <RefreshCw className={cn(
+                  "h-4 w-4",
+                  syncState === "synced" && "text-primary",
+                  syncState === "pending" && "text-amber-600",
+                  syncState === "syncing" && "text-primary"
                 )} />
               </div>
-              <span className={cn(
-                "relative z-10 text-[11px] font-bold uppercase tracking-widest transition-all duration-300 whitespace-nowrap",
-                syncState === "synced" && "text-primary",
-                syncState === "pending" && "text-amber-600",
-                syncState === "syncing" && "text-indigo-600 opacity-0 scale-95"
-              )}>
-                Sync your Workspace
-              </span>
+
+              {/* Success check indicator */}
+              {syncState === "synced" && (
+                <div className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              )}
             </button>
 
-            <div className="flex items-center gap-1.5">
-              {/* Username display */}
+            <div className="flex items-center gap-1">
               {profile?.username && (
-                <span className="hidden md:flex items-center gap-1 text-xs font-bold text-muted-foreground bg-muted/40 rounded-full px-3 py-1.5">
+                <span className="hidden lg:flex items-center gap-1 text-xs font-bold text-muted-foreground bg-muted/40 rounded-full px-3 py-1.5 mr-1">
                   <AtSign className="h-3 w-3" />{profile.username}
                 </span>
               )}
+              
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all"
@@ -465,18 +392,13 @@ function Dashboard() {
               >
                 {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
               </button>
+
               <button
                 onClick={() => setTourOpen(true)}
-                className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all"
+                className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all hidden sm:flex"
                 aria-label="Start product tour"
               >
                 <HelpCircle className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => navigate({ to: "/settings" })}
-                className="p-2 rounded-full text-muted-foreground hover:text-foreground hidden sm:block hover:bg-muted/50 transition-all"
-              >
-                <Settings className="h-5 w-5" />
               </button>
 
               <DropdownMenu>
@@ -497,6 +419,9 @@ function Dashboard() {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate({ to: "/settings" })}>
                     <Settings className="h-4 w-4" />Account Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setTourOpen(true)} className="sm:hidden">
+                    <HelpCircle className="h-4 w-4" />Take Product Tour
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={async () => { await signOut(); navigate({ to: "/login" }); }} className="text-destructive">
@@ -626,7 +551,7 @@ function Dashboard() {
               <button
                 onClick={() => {
                   if (spaces.filter(s => s.role === "owner").length >= 5) {
-                    toast.error("You can only create up to 5 shared spaces.");
+                    showStatus("Max 5 spaces allowed", "error");
                     return;
                   }
                   setCreateSpaceOpen(true);
@@ -647,7 +572,7 @@ function Dashboard() {
                 <button
                   onClick={() => {
                     if (spaces.filter(s => s.role === "owner").length >= 5) {
-                      toast.error("You can only create up to 5 shared spaces.");
+                      showStatus("Max 5 spaces allowed", "error");
                       return;
                     }
                     setCreateSpaceOpen(true);

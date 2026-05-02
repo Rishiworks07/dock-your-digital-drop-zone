@@ -4,7 +4,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Copy, Download, ExternalLink, Trash2 } from "lucide-react";
 import { formatBytes, formatRelative, getDomain, downloadFile } from "@/lib/item-helpers";
-import { toast } from "sonner";
+import { useStatus } from "@/components/ui/QuickStatus";
 import type { Item } from "./types";
 
 interface Props {
@@ -14,6 +14,7 @@ interface Props {
 }
 
 export function ItemDetailModal({ item, onOpenChange, onDelete }: Props) {
+  const { showStatus } = useStatus();
   if (!item) return null;
 
   const copy = async () => {
@@ -23,7 +24,7 @@ export function ItemDetailModal({ item, onOpenChange, onDelete }: Props) {
     else text = item.file_url ?? "";
     if (text) {
       await navigator.clipboard.writeText(text);
-      toast.success("Copied");
+      showStatus("Copied to clipboard", "success");
     }
   };
 

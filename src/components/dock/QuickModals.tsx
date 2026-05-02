@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { createNote, createLink } from "@/lib/upload";
 import { isUrl } from "@/lib/item-helpers";
-import { toast } from "sonner";
+import { useStatus } from "@/components/ui/QuickStatus";
 
 interface Props {
   open: boolean;
@@ -18,6 +18,7 @@ interface Props {
 }
 
 export function NoteModal({ open, onOpenChange, userId, onCreated, spaceId }: Props) {
+  const { showStatus } = useStatus();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tagsRaw, setTagsRaw] = useState("");
@@ -28,16 +29,16 @@ export function NoteModal({ open, onOpenChange, userId, onCreated, spaceId }: Pr
   }, [open]);
 
   const submit = async () => {
-    if (!content.trim()) { toast.error("Add some content"); return; }
+    if (!content.trim()) { showStatus("Add some content", "error"); return; }
     setBusy(true);
     try {
       const tags = tagsRaw.split(",").map((t) => t.trim()).filter(Boolean);
       await createNote(userId, title, content, tags, spaceId);
-      toast.success("Note saved");
+      showStatus("Note saved", "success");
       onCreated();
       onOpenChange(false);
     } catch (e) {
-      toast.error((e as Error).message);
+      showStatus("Something went wrong", "error");
     } finally {
       setBusy(false);
     }
@@ -73,21 +74,22 @@ export function NoteModal({ open, onOpenChange, userId, onCreated, spaceId }: Pr
 }
 
 export function LinkModal({ open, onOpenChange, userId, onCreated, spaceId }: Props) {
+  const { showStatus } = useStatus();
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { if (!open) setUrl(""); }, [open]);
 
   const submit = async () => {
-    if (!isUrl(url)) { toast.error("Enter a valid URL (https://...)"); return; }
+    if (!isUrl(url)) { showStatus("Enter a valid URL", "error"); return; }
     setBusy(true);
     try {
       await createLink(userId, url.trim(), spaceId);
-      toast.success("Link saved");
+      showStatus("Link saved", "success");
       onCreated();
       onOpenChange(false);
     } catch (e) {
-      toast.error((e as Error).message);
+      showStatus("Something went wrong", "error");
     } finally {
       setBusy(false);
     }

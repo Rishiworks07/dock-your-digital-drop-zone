@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useSharedSpaces } from "@/lib/shared-spaces-context";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { useStatus } from "@/components/ui/QuickStatus";
+import { logActivity } from "@/lib/logger";
 
 const MAX_MEMBERS = 3; // owner + 2 collaborators = 3 total
 
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function CreateSpaceModal({ open, onOpenChange }: Props) {
+  const { showStatus } = useStatus();
   const { user, profile } = useAuth();
   const { refresh } = useSharedSpaces();
   const [spaceName, setSpaceName] = useState("");
@@ -60,7 +62,7 @@ export function CreateSpaceModal({ open, onOpenChange }: Props) {
 
   const addUser = (u: UserResult) => {
     if (selected.length >= MAX_MEMBERS - 1) {
-      toast.error(`Max ${MAX_MEMBERS - 1} collaborators per space`);
+      showStatus(`Max ${MAX_MEMBERS - 1} collaborators allowed`, "error");
       return;
     }
     setSelected(prev => [...prev, u]);
@@ -114,11 +116,12 @@ export function CreateSpaceModal({ open, onOpenChange }: Props) {
         });
       }
 
-      toast.success(`"${space.name}" created!`);
+      showStatus(`Space created!`, "success");
+      await logActivity(user.id, "shared_space_create", { name: space.name, member_count: selected.length + 1 });
       await refresh();
       onOpenChange(false);
     } catch (e) {
-      toast.error((e as Error).message);
+      showStatus("Failed to create space", "error");
     } finally {
       setCreating(false);
     }

