@@ -3,7 +3,7 @@ import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/lib/theme-context";
 import { NotificationsProvider } from "@/lib/notifications-context";
 import { SharedSpacesProvider } from "@/lib/shared-spaces-context";
-import { Toaster } from "@/components/ui/sonner";
+import { StatusProvider } from "@/components/ui/QuickStatus";
 
 import "../styles.css";
 
@@ -37,14 +37,15 @@ export const Route = createRootRoute({
 function RootComponent() {
   return (
     <AuthProvider>
-      <ThemeProvider>
-        <NotificationsProvider>
-          <SharedSpacesProvider>
-            <Outlet />
-            <Toaster position="top-right" richColors closeButton />
-          </SharedSpacesProvider>
-        </NotificationsProvider>
-      </ThemeProvider>
+      <StatusProvider>
+        <ThemeProvider>
+          <NotificationsProvider>
+            <SharedSpacesProvider>
+              <Outlet />
+            </SharedSpacesProvider>
+          </NotificationsProvider>
+        </ThemeProvider>
+      </StatusProvider>
     </AuthProvider>
   );
 }

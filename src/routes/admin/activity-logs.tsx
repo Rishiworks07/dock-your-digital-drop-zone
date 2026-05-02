@@ -7,13 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useStatus } from "@/components/ui/QuickStatus";
 
 export const Route = createFileRoute("/admin/activity-logs")({
   component: ActivityLogs,
 });
 
 function ActivityLogs() {
+  const { showStatus } = useStatus();
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -41,7 +42,7 @@ function ActivityLogs() {
       setLogs(data || []);
     } catch (error) {
       console.error("Error fetching logs:", error);
-      toast.error("Failed to load activity logs");
+      showStatus("Failed to load logs", "error");
     } finally {
       setLoading(false);
     }

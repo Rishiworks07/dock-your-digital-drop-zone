@@ -4,13 +4,14 @@ import { HardDrive, PieChart, AlertTriangle, TrendingUp, ShieldAlert, Loader2, D
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useStatus } from "@/components/ui/QuickStatus";
 
 export const Route = createFileRoute("/admin/storage")({
   component: StorageMonitoring,
 });
 
 function StorageMonitoring() {
+  const { showStatus } = useStatus();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -66,7 +67,7 @@ function StorageMonitoring() {
       });
     } catch (error) {
       console.error("Error fetching storage stats:", error);
-      toast.error("Failed to load storage metrics");
+      showStatus("Failed to load metrics", "error");
     } finally {
       setLoading(false);
     }

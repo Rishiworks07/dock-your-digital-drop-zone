@@ -5,10 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Loader2, Search, UserMinus, UserPlus, X, Crown, AtSign, Trash2, LogOut, Users, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { useSharedSpaces, type SharedSpace } from "@/lib/shared-spaces-context";
 import { useAuth } from "@/lib/auth-context";
+import { useStatus } from "@/components/ui/QuickStatus";
 import { logActivity } from "@/lib/logger";
+import { useSharedSpaces, type SharedSpace } from "@/lib/shared-spaces-context";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +38,7 @@ interface Props {
 
 export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpaceDeleted }: Props) {
   const { user } = useAuth();
+  const { showStatus } = useStatus();
   const { refresh: refreshSpaces } = useSharedSpaces();
   const [members, setMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,7 +69,7 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
       `)
       .eq("space_id", space.id);
 
-    if (error) toast.error(error.message);
+    if (error) showStatus("Something went wrong", "error");
     else setMembers((data as any) || []);
     setLoading(false);
   };
@@ -90,7 +91,7 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
     
     if (error) {
       console.error("Search error:", error);
-      toast.error("Search failed. Check console for details.");
+      showStatus("Search failed", "error");
       setSearching(false);
       return;
     }
@@ -113,7 +114,7 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
   const addMember = async (targetUser: any) => {
     if (!space) return;
     if (members.length >= 3) {
-      toast.error("Space is limited to 3 members total.");
+      showStatus("Limit: 3 members per space", "error");
       return;
     }
     setBusy(targetUser.user_id);
@@ -136,13 +137,13 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
       
       await logActivity(user?.id || null, "invite_send", { space_id: space.id, target_user: targetUser.username });
 
-      toast.success(`${targetUser.username} added`);
+      showStatus(`${targetUser.username} added`, "success");
       setSearch("");
       setSearchResults([]);
       fetchMembers();
       onUpdate?.();
     } catch (e) {
-      toast.error((e as Error).message);
+      showStatus("An error occurred", "error");
     } finally {
       setBusy(null);
     }
@@ -159,9 +160,9 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
       .eq("space_id", space.id)
       .eq("user_id", member.user_id);
 
-    if (error) toast.error(error.message);
+    if (error) showStatus("Something went wrong", "error");
     else {
-      toast.success("Member removed");
+      showStatus("Member removed", "success");
       fetchMembers();
       onUpdate?.();
     }
@@ -191,14 +192,14 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
       
       if (error) throw error;
 
-      toast.success("Space deleted");
+      showStatus("Space deleted", "success");
       await logActivity(user?.id || null, "delete", { type: "shared_space", name: space.name });
       onOpenChange(false);
       await refreshSpaces();
       onSpaceDeleted?.();
       onUpdate?.();
     } catch (e) {
-      toast.error((e as Error).message);
+      showStatus("An error occurred", "error");
     } finally {
       setBusy(null);
     }
@@ -216,14 +217,14 @@ export function SpaceMembersModal({ open, onOpenChange, space, onUpdate, onSpace
 
       if (error) throw error;
 
-      toast.success("Left the space");
+      showStatus("Left the space", "success");
       await logActivity(user.id, "shared_space_join", { space_id: space.id, action: "leave" });
       onOpenChange(false);
       await refreshSpaces();
       onSpaceDeleted?.();
       onUpdate?.();
     } catch (e) {
-      toast.error((e as Error).message);
+      showStatus("An error occurred", "error");
     } finally {
       setBusy(null);
     }

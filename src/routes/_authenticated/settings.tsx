@@ -6,7 +6,7 @@ import { useTheme } from "@/lib/theme-context";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { formatBytes, STORAGE_LIMIT } from "@/lib/item-helpers";
-import { toast } from "sonner";
+import { useStatus } from "@/components/ui/QuickStatus";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -20,6 +20,7 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 function SettingsPage() {
+  const { showStatus } = useStatus();
   const { user, signOut, profile, refreshProfile } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -59,10 +60,10 @@ function SettingsPage() {
       .from("profiles")
       .update({ username: newUsername.toLowerCase() })
       .eq("user_id", user.id);
-    if (error) { toast.error(error.message); }
+    if (error) { showStatus("Failed to update username", "error"); }
     else {
       await refreshProfile();
-      toast.success("Username updated!");
+      showStatus("Username updated!", "success");
       setEditingUsername(false);
     }
     setSavingUsername(false);
@@ -94,8 +95,8 @@ function SettingsPage() {
     const paths = (items ?? []).map((i) => i.file_path).filter(Boolean) as string[];
     if (paths.length) await supabase.storage.from("user-files").remove(paths);
     const { error } = await supabase.from("items").delete().eq("user_id", user.id);
-    if (error) toast.error(error.message);
-    else toast.success("All items cleared");
+    if (error) showStatus("Failed to clear items", "error");
+    else showStatus("All items cleared", "success");
     navigate({ to: "/dashboard" });
   };
 
@@ -104,8 +105,8 @@ function SettingsPage() {
     const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
       redirectTo: `${window.location.origin}/login`,
     });
-    if (error) toast.error(error.message);
-    else toast.success("Password reset email sent");
+    if (error) showStatus("Failed to send email", "error");
+    else showStatus("Reset email sent", "success");
   };
 
   return (

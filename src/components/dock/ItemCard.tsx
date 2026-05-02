@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fileExtBadge, fileTypeColor, formatBytes, formatRelative, getDomain, downloadFile } from "@/lib/item-helpers";
 import type { Item } from "./types";
-import { toast } from "sonner";
+import { useStatus } from "@/components/ui/QuickStatus";
 
 interface Props {
   item: Item;
@@ -53,6 +53,7 @@ function useCountdown(createdAt: string) {
 }
 
 export function ItemCard({ item, onTogglePin, onDelete, onOpen, onMoveToVault }: Props) {
+  const { showStatus } = useStatus();
   const [imgError, setImgError] = useState(false);
 
   const copyContent = async () => {
@@ -62,7 +63,7 @@ export function ItemCard({ item, onTogglePin, onDelete, onOpen, onMoveToVault }:
     else if (item.file_url) text = item.file_url;
     if (!text) return;
     await navigator.clipboard.writeText(text);
-    toast.success("Copied");
+    showStatus("Copied to clipboard", "success");
   };
 
   const isImage = item.type === "image" && item.thumbnail_url && !imgError;

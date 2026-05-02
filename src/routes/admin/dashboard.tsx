@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Users, HardDrive, MousePointer2, Activity, TrendingUp, AlertCircle, ShieldCheck, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useStatus } from "@/components/ui/QuickStatus";
 import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/admin/dashboard")({
@@ -11,6 +11,7 @@ export const Route = createFileRoute("/admin/dashboard")({
 });
 
 function AdminDashboard() {
+  const { showStatus } = useStatus();
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -77,7 +78,7 @@ function AdminDashboard() {
       });
     } catch (error) {
       console.error("Error fetching stats:", error);
-      toast.error("Failed to load dashboard metrics");
+      showStatus("Failed to load metrics", "error");
     } finally {
       setLoading(false);
     }

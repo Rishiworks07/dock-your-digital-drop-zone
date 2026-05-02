@@ -43,7 +43,7 @@ export function NotificationsPanel() {
 
       {/* Dropdown panel */}
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-[380px] z-50 animate-fade-in-up">
+        <div className="fixed inset-x-4 top-20 sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[380px] z-50 animate-fade-in-up">
           <div className="rounded-2xl border border-border/60 bg-card shadow-lift overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
@@ -74,7 +74,7 @@ export function NotificationsPanel() {
                   <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
                     <Bell className="h-6 w-6 text-primary/60" />
                   </div>
-                  <p className="font-bold text-foreground text-sm">You're all caught up 🎉</p>
+                  <p className="font-bold text-foreground text-sm">You're all caught up</p>
                   <p className="text-xs text-muted-foreground mt-1">No new notifications</p>
                 </div>
               ) : (

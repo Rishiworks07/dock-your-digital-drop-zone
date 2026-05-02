@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { useStatus } from "@/components/ui/QuickStatus";
 import { logActivity } from "@/lib/logger";
 
 export const Route = createFileRoute("/admin/")({
@@ -13,6 +13,7 @@ export const Route = createFileRoute("/admin/")({
 });
 
 function AdminLoginPage() {
+  const { showStatus } = useStatus();
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -24,7 +25,7 @@ function AdminLoginPage() {
     
     // Explicit check for admin credentials as per user request
     if (email !== "dockapp07@gmail.com" || password !== "Rishi-Admin@210224") {
-      toast.error("Invalid admin credentials");
+      showStatus("Invalid credentials", "error");
       return;
     }
 
@@ -33,11 +34,11 @@ function AdminLoginPage() {
     setSubmitting(false);
 
     if (error) {
-      toast.error(error.message);
+      showStatus("Auth failed", "error");
       return;
     }
 
-    toast.success("Admin access granted");
+    showStatus("Admin granted", "success");
     if (data?.user) {
       await logActivity(data.user.id, "login", { role: "admin" });
     }

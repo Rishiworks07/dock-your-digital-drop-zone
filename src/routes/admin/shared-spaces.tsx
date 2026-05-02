@@ -7,13 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useStatus } from "@/components/ui/QuickStatus";
 
 export const Route = createFileRoute("/admin/shared-spaces")({
   component: SharedSpacesMonitoring,
 });
 
 function SharedSpacesMonitoring() {
+  const { showStatus } = useStatus();
   const [spaces, setSpaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -71,7 +72,7 @@ function SharedSpacesMonitoring() {
       setSpaces(spacesWithStats);
     } catch (error) {
       console.error("Error fetching spaces:", error);
-      toast.error("Failed to load shared spaces");
+      showStatus("Failed to load spaces", "error");
     } finally {
       setLoading(false);
     }
@@ -94,7 +95,7 @@ function SharedSpacesMonitoring() {
     const confirm = window.confirm("Are you sure you want to delete this shared space? All members will be removed and space-specific items will lose their context.");
     if (!confirm) return;
     
-    toast.error("Deletion restricted for safety. Use direct DB management.");
+    showStatus("Deletion restricted", "error");
   };
 
   if (loading) {

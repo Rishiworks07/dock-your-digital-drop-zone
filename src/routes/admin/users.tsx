@@ -8,13 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { useStatus } from "@/components/ui/QuickStatus";
 
 export const Route = createFileRoute("/admin/users")({
   component: UserManagement,
 });
 
 function UserManagement() {
+  const { showStatus } = useStatus();
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -68,7 +69,7 @@ function UserManagement() {
       setUsers(usersWithStats);
     } catch (error) {
       console.error("Error fetching users:", error);
-      toast.error("Failed to load users");
+      showStatus("Failed to load users", "error");
     } finally {
       setLoading(false);
     }
@@ -89,16 +90,14 @@ function UserManagement() {
   );
 
   const suspendUser = (userId: string) => {
-    toast.warning("Deactivation feature requires auth.users update (admin API)", {
-      description: "You can implement this via a Supabase Edge Function with service_role."
-    });
+    showStatus("Feature unavailable", "error");
   };
 
   const deleteUser = async (userId: string) => {
     const confirm = window.confirm("Are you sure you want to delete this user? This cannot be undone.");
     if (!confirm) return;
     
-    toast.error("User deletion restricted. Use Supabase dashboard for security.");
+    showStatus("Action restricted", "error");
   };
 
   if (loading) {

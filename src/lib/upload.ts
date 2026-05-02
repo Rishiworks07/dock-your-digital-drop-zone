@@ -9,6 +9,7 @@ import {
   type ItemType,
 } from "./item-helpers";
 import { logActivity } from "./logger";
+import { notifySharedSpaceActivity } from "./notification-service";
 
 interface UploadOptions {
   userId: string;
@@ -73,6 +74,9 @@ export async function uploadFileItem(file: File, opts: UploadOptions) {
   }
   
   await logActivity(opts.userId, "upload", { type, name: processed.name, size: processed.size });
+  if (opts.spaceId) {
+    await notifySharedSpaceActivity(opts.userId, opts.spaceId, type, processed.name);
+  }
   return data;
 }
 
@@ -94,6 +98,9 @@ export async function createNote(userId: string, title: string, content: string,
   if (error) throw new UploadError(error.message);
   
   await logActivity(userId, "upload", { type: "note", title: data.title });
+  if (spaceId) {
+    await notifySharedSpaceActivity(userId, spaceId, "note", data.title);
+  }
   return data;
 }
 
@@ -117,11 +124,14 @@ export async function createLink(userId: string, url: string, spaceId?: string |
   if (error) throw new UploadError(error.message);
   
   await logActivity(userId, "upload", { type: "link", url });
+  if (spaceId) {
+    await notifySharedSpaceActivity(userId, spaceId, "link", url);
+  }
   return data;
 }
 
 
-export async function deleteItem(userId: string, item: { id: string; file_path: string | null; type?: string; title?: string }) {
+export async function deleteItem(userId: string, item: { id: string; file_path: string | null; type?: string | null; title?: string | null }) {
   if (item.file_path) {
     await supabase.storage.from("user-files").remove([item.file_path]);
   }
