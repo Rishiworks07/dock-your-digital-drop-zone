@@ -580,13 +580,7 @@ function Dashboard() {
                 )}
               </div>
               <button
-                onClick={() => {
-                  if (spaces.filter(s => s.role === "owner").length >= 5) {
-                    showStatus("Max 5 spaces allowed", "error");
-                    return;
-                  }
-                  setCreateSpaceOpen(true);
-                }}
+                onClick={() => setCreateSpaceOpen(true)}
                 className="flex items-center gap-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold px-4 py-2 transition-all hover:-translate-y-0.5"
               >
                 <FolderPlus className="h-3.5 w-3.5" /> New Space
@@ -601,13 +595,7 @@ function Dashboard() {
                 <p className="font-bold text-foreground text-sm">No shared spaces yet</p>
                 <p className="text-xs text-muted-foreground mt-1 max-w-xs">Create a space to collaborate with others or wait for an invite.</p>
                 <button
-                  onClick={() => {
-                    if (spaces.filter(s => s.role === "owner").length >= 5) {
-                      showStatus("Max 5 spaces allowed", "error");
-                      return;
-                    }
-                    setCreateSpaceOpen(true);
-                  }}
+                  onClick={() => setCreateSpaceOpen(true)}
                   className="mt-4 flex items-center gap-2 rounded-xl bg-primary text-white text-xs font-bold px-4 py-2.5 transition-all hover:-translate-y-0.5 shadow-lift"
                 >
                   <FolderPlus className="h-3.5 w-3.5" /> Create First Space
