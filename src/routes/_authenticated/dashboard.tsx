@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Anchor, ArrowDownAZ, ArrowDownWideNarrow, Clipboard, FileText,
   Link as LinkIcon, Loader2, LogOut, Search, Settings, User, X, PinIcon,
-  Moon, Sun, FolderPlus, Users, AtSign, Crown, HelpCircle, RefreshCw
+  Moon, Sun, FolderPlus, Users, AtSign, Crown, HelpCircle, RefreshCw, Download
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
@@ -82,6 +82,26 @@ function Dashboard() {
   const [detailItem, setDetailItem] = useState<Item | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Item | null>(null);
   const { theme, toggleTheme } = useTheme();
+
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
 
   // Sync states
   const [syncState, setSyncState] = useState<"synced" | "pending" | "syncing">("synced");
@@ -385,6 +405,17 @@ function Dashboard() {
                 </span>
               )}
               
+              {deferredPrompt && (
+                <button
+                  onClick={handleInstallClick}
+                  className="px-3 py-1.5 mr-1 rounded-full bg-primary text-white hover:bg-primary/90 transition-all flex items-center gap-1.5 text-xs font-bold shadow-sm"
+                  aria-label="Install App"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Install App</span>
+                </button>
+              )}
+
               <button
                 onClick={toggleTheme}
                 className="p-2 rounded-full text-muted-foreground hover:text-primary hover:bg-muted/50 transition-all"
@@ -549,13 +580,7 @@ function Dashboard() {
                 )}
               </div>
               <button
-                onClick={() => {
-                  if (spaces.filter(s => s.role === "owner").length >= 5) {
-                    showStatus("Max 5 spaces allowed", "error");
-                    return;
-                  }
-                  setCreateSpaceOpen(true);
-                }}
+                onClick={() => setCreateSpaceOpen(true)}
                 className="flex items-center gap-2 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold px-4 py-2 transition-all hover:-translate-y-0.5"
               >
                 <FolderPlus className="h-3.5 w-3.5" /> New Space
@@ -570,13 +595,7 @@ function Dashboard() {
                 <p className="font-bold text-foreground text-sm">No shared spaces yet</p>
                 <p className="text-xs text-muted-foreground mt-1 max-w-xs">Create a space to collaborate with others or wait for an invite.</p>
                 <button
-                  onClick={() => {
-                    if (spaces.filter(s => s.role === "owner").length >= 5) {
-                      showStatus("Max 5 spaces allowed", "error");
-                      return;
-                    }
-                    setCreateSpaceOpen(true);
-                  }}
+                  onClick={() => setCreateSpaceOpen(true)}
                   className="mt-4 flex items-center gap-2 rounded-xl bg-primary text-white text-xs font-bold px-4 py-2.5 transition-all hover:-translate-y-0.5 shadow-lift"
                 >
                   <FolderPlus className="h-3.5 w-3.5" /> Create First Space
